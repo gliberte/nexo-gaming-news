@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "https://esm.sh/rss-parser@3.13.0": "https://esm.sh/rss-parser@3.13.0",
+    "https://esm.sh/@supabase/supabase-js@2.45.6": "https://esm.sh/@supabase/supabase-js@2.45.6",
+    "https://esm.sh/twitter-api-v2@1.17.2": "https://esm.sh/twitter-api-v2@1.17.2"
+  }
+}
