@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "npm:@google/generative-ai";
 import { GamingArticle } from "./extractor.ts";
 
 export interface GeneratedPosts {
+  spanish_title: string;
   tweet: string;
   instagram_caption: string;
   youtube_search_query: string;
@@ -30,6 +31,9 @@ Título: ${article.title}
 Plataforma: ${article.platform}
 Contenido: ${article.content}
 Enlace: ${article.link}
+
+INSTRUCCIONES PARA EL TÍTULO:
+- Traduce el título de la noticia al español. Mantén el sentido original y un tono atractivo.
 
 INSTRUCCIONES PARA X (TWITTER):
 - Escribe un tweet conciso (máximo 280 caracteres, incluyendo el enlace).
@@ -63,6 +67,7 @@ INSTRUCCIONES PARA TIKTOK (GUION):
 
 DEVUELVE TU RESPUESTA EXACTAMENTE EN ESTE FORMATO JSON, SIN NADA MÁS:
 {
+  "spanish_title": "Aquí va el título traducido al español...",
   "tweet": "Aquí va el tweet...",
   "instagram_caption": "Aquí va el copy de instagram...",
   "youtube_search_query": "Término de búsqueda del trailer...",

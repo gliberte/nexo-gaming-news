@@ -79,12 +79,34 @@ Deno.serve(async (req: Request) => {
             }
             if (existingRecord) continue; // Ya existe
 
-            const prompt = `Actúa como un experto en GIS. Resume este artículo en un post de LinkedIn de 3 párrafos, en español, con un tono analítico. Destaca herramientas o plataformas mencionadas.\n\nTítulo: ${title}\nEnlace: ${link}\nResumen original: ${contentSnippet || ''}`;
+            const prompt = `Actúa como un experto en GIS. Resume este artículo en un post de LinkedIn de 3 párrafos, en español, con un tono analítico. Destaca herramientas o plataformas mencionadas. Además, TRADUCE EL TÍTULO al español.
+Devuelve EXACTAMENTE Y SOLAMENTE un JSON con este formato, sin markdown de bloques de código:
+{
+  "spanish_title": "título traducido...",
+  "draft_content": "post de linkedin..."
+}
+
+Título original: ${title}
+Enlace: ${link}
+Resumen original: ${contentSnippet || ''}`;
 
             // Pequeña pausa de 2.5s para no saturar el Tier Gratuito de Gemini (5 per minute)
             await new Promise(resolve => setTimeout(resolve, 2500));
             const response = await model.generateContent(prompt);
-            const draftContent = response.response.text();
+            const textResponse = response.response.text();
+            
+            let draftContent = "";
+            let translatedTitle = title;
+            
+            try {
+              const cleanText = textResponse.replace(/```json/gi, "").replace(/```/g, "").trim();
+              const parsed = JSON.parse(cleanText);
+              draftContent = parsed.draft_content;
+              translatedTitle = parsed.spanish_title || title;
+            } catch (e) {
+              console.error("Failed to parse JSON", textResponse);
+              draftContent = textResponse;
+            }
             
             if (!draftContent) {
               executionErrors.push({ link, step: 'gemini', error: 'Gemini devolvió contenido vacío' });
@@ -93,7 +115,7 @@ Deno.serve(async (req: Request) => {
 
             const newRecord: ContentRecord = {
               source_url: link,
-              title: title,
+              title: translatedTitle,
               draft_content: draftContent,
               status: 'draft_ready',
             };
@@ -103,7 +125,7 @@ Deno.serve(async (req: Request) => {
               .insert(newRecord);
 
             if (!insertError) {
-              processedItems.push({ feed: feedUrl, title, link });
+              processedItems.push({ feed: feedUrl, title: translatedTitle, link });
               processedCount++;
             } else {
               executionErrors.push({ link, step: 'db_insert', error: insertError.message });

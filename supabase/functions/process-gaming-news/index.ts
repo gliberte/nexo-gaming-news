@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       const telegramMessage = `
 🎮 *Nueva Noticia Gaming Procesada* 🎮
 
-*Título:* ${article.title}
+*Título:* ${generatedPosts.spanish_title}
 *Fuente:* ${article.link}
 *Trailer:* ${youtubeUrl}
 
@@ -75,10 +75,18 @@ ${generatedPosts.instagram_caption}
       await publishToTelegram(telegramMessage);
 
       // 5. Guardar en Base de Datos para evitar duplicados en el futuro
-      await markNewsAsProcessed(article, xSuccess, igSuccess, generatedPosts.web_article, youtubeUrl, article.imageUrl, generatedPosts.tiktok_script);
+      await markNewsAsProcessed(
+        { ...article, title: generatedPosts.spanish_title },
+        xSuccess,
+        igSuccess,
+        generatedPosts.web_article,
+        youtubeUrl,
+        article.imageUrl,
+        generatedPosts.tiktok_script
+      );
       
       processedArticles.push({
-        title: article.title,
+        title: generatedPosts.spanish_title,
         x_status: xSuccess ? "ok" : "fail",
         ig_status: igSuccess ? "ok" : "fail"
       });
