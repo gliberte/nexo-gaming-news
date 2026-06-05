@@ -16,6 +16,7 @@ export async function getAdminDataAction(password: string) {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Supabase Error:", error);
     throw new Error("Error al obtener datos.");
   }
 

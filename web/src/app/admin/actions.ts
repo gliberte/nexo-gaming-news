@@ -99,3 +99,29 @@ export async function submitNewsAction(formData: FormData) {
   
   return { success: true, id: resultId };
 }
+
+export async function updateNewsStatusAction(password: string, id: string, status: string) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword || password !== adminPassword) {
+    throw new Error("Contraseña incorrecta.");
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from('published_news')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error al actualizar estado:", error);
+    throw new Error("No se pudo actualizar el estado de la noticia.");
+  }
+
+  revalidatePath('/');
+  revalidatePath('/admin');
+  revalidatePath(`/noticia/${id}`);
+
+  return { success: true };
+}
+
