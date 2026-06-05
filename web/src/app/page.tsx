@@ -9,6 +9,7 @@ export default async function Home() {
   const { data: newsItems, error } = await supabase
     .from("published_news")
     .select("*")
+    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(20);
 
