@@ -6,6 +6,13 @@ import { notFound } from 'next/navigation';
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
+// Helper function to extract YouTube video ID
+const getYoutubeVideoId = (url: string | null | undefined) => {
+  if (!url) return null;
+  const match = url.match(/[?&]v=([^&]+)/);
+  return match ? match[1] : null;
+};
+
 // Definición de Props para App Router en Next.js 15+ (params es Promise)
 type Props = {
   params: Promise<{ id: string }>
@@ -16,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("published_news")
-    .select("title")
+    .select("title, web_article, image_url, youtube_url")
     .eq("id", id)
     .single();
 
@@ -24,9 +31,41 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: 'Noticia no encontrada' };
   }
 
+  // Limpiar formato markdown y acortar para la descripción del previo
+  const cleanDescription = data.web_article
+    ? data.web_article
+        .replace(/[#*`_\[\]()\-]/g, '') // Eliminar caracteres de formato markdown
+        .replace(/\s+/g, ' ')           // Normalizar espacios
+        .trim()
+        .substring(0, 155) + '...'
+    : `Detalles completos sobre: ${data.title}`;
+
+  // Obtener imagen del artículo o miniatura de YouTube si no hay imagen propia
+  let imageUrl = data.image_url;
+  if (!imageUrl && data.youtube_url) {
+    const videoId = getYoutubeVideoId(data.youtube_url);
+    if (videoId) {
+      imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+  }
+
+  const titleText = `${data.title} - NexoGamingNews`;
+
   return {
-    title: `${data.title} - NexoGamingNews`,
-    description: `Detalles completos sobre: ${data.title}`
+    title: titleText,
+    description: cleanDescription,
+    openGraph: {
+      title: titleText,
+      description: cleanDescription,
+      type: 'article',
+      images: imageUrl ? [{ url: imageUrl }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: titleText,
+      description: cleanDescription,
+      images: imageUrl ? [imageUrl] : [],
+    }
   };
 }
 
@@ -43,12 +82,6 @@ export default async function NoticiaPage({ params }: Props) {
   if (error || !item) {
     notFound();
   }
-
-  const getYoutubeVideoId = (url: string) => {
-    if (!url) return null;
-    const match = url.match(/[?&]v=([^&]+)/);
-    return match ? match[1] : null;
-  };
 
   const videoId = getYoutubeVideoId(item.youtube_url);
 
