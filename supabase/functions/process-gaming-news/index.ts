@@ -1,6 +1,6 @@
 import { fetchGamingNews } from "./extractor.ts";
 import { generateSocialPosts } from "./ai_processor.ts";
-import { isNewsAlreadyProcessed, markNewsAsProcessed } from "./database.ts";
+import { isNewsAlreadyProcessed, markNewsAsProcessed, getSupabaseClient } from "./database.ts";
 import { publishToX, publishToInstagram, publishToTelegram } from "./publisher.ts";
 import ytSearch from "npm:yt-search";
 
@@ -74,6 +74,26 @@ ${generatedPosts.instagram_caption}
 
       await publishToTelegram(telegramMessage);
 
+      // Generar Plan de Video (IA) si hay guion
+      let productionPlan = null;
+      if (generatedPosts.tiktok_script) {
+        try {
+          console.log(`🎬 Generando Plan de Producción de Video para: ${generatedPosts.spanish_title}`);
+          const supabase = getSupabaseClient();
+          const { data: planData, error: planError } = await supabase.functions.invoke("generate-production-plan", {
+            body: { tiktok_script: generatedPosts.tiktok_script }
+          });
+          if (planError) {
+            console.error("❌ Error al invocar generate-production-plan:", planError);
+          } else {
+            productionPlan = planData;
+            console.log("✅ Plan de Producción de Video generado con éxito.");
+          }
+        } catch (err) {
+          console.error("❌ Error grave al invocar generate-production-plan:", err.message);
+        }
+      }
+
       // 5. Guardar en Base de Datos para evitar duplicados en el futuro
       await markNewsAsProcessed(
         { ...article, title: generatedPosts.spanish_title },
@@ -82,7 +102,8 @@ ${generatedPosts.instagram_caption}
         generatedPosts.web_article,
         youtubeUrl,
         article.imageUrl,
-        generatedPosts.tiktok_script
+        generatedPosts.tiktok_script,
+        productionPlan
       );
       
       processedArticles.push({

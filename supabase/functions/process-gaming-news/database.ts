@@ -44,7 +44,8 @@ export async function markNewsAsProcessed(
   webArticle?: string,
   youtubeUrl?: string,
   imageUrl?: string,
-  tiktokScript?: string
+  tiktokScript?: string,
+  productionPlan?: any
 ): Promise<boolean> {
   const supabase = getSupabaseClient();
   
@@ -59,7 +60,8 @@ export async function markNewsAsProcessed(
       web_article: webArticle,
       youtube_url: youtubeUrl,
       image_url: imageUrl,
-      tiktok_script: tiktokScript
+      tiktok_script: tiktokScript,
+      production_plan: productionPlan
     });
 
   if (error) {

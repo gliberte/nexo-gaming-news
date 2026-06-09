@@ -5,3 +5,5 @@ node_modules
 debug_*.js
 test_*.js
 web/.next
+.DS_Store
+web/public/news_*.mp4

@@ -4,7 +4,7 @@ import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { submitNewsAction, generateProductionPlanAction } from "../../actions";
+import { submitNewsAction, generateProductionPlanAction, triggerVideoRenderAction } from "../../actions";
 import { getAdminNewsItemAction } from "../../data-actions";
 
 const textStylesMap: any = {
@@ -41,6 +41,11 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [productionPlan, setProductionPlan] = useState<any | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
+  
+  // Video render state
+  const [isRenderingVideo, setIsRenderingVideo] = useState(false);
+  const [videoRenderSuccess, setVideoRenderSuccess] = useState<boolean | null>(null);
+  const [videoPath, setVideoPath] = useState<string | null>(null);
  
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -166,6 +171,30 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       console.error(err);
     } finally {
       setIsGeneratingPlan(false);
+    }
+  };
+
+  const handleRenderVideo = async () => {
+    if (isNew) {
+      setError("Guarda la noticia primero antes de renderizar un video.");
+      return;
+    }
+    setIsRenderingVideo(true);
+    setVideoRenderSuccess(null);
+    setVideoPath(null);
+    setError(null);
+    try {
+      const result = await triggerVideoRenderAction(password, unwrappedParams.id);
+      if (result && result.success) {
+        setVideoRenderSuccess(true);
+        setVideoPath(`/news_${unwrappedParams.id}.mp4`);
+      }
+    } catch (err: any) {
+      setError("Error al renderizar: " + (err.message || "Fallo en el script de renderizado."));
+      setVideoRenderSuccess(false);
+      console.error(err);
+    } finally {
+      setIsRenderingVideo(false);
     }
   };
 
@@ -622,6 +651,41 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   </>
                 )}
               </button>
+              
+              {productionPlan && (
+                <div className="space-y-2">
+                  <button 
+                    type="button"
+                    onClick={handleRenderVideo}
+                    disabled={isRenderingVideo}
+                    className="w-full py-4 px-6 border font-bold clipped-corner transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ borderColor: '#ff0055', color: '#ff0055', background: 'rgba(255, 0, 85, 0.02)' }}
+                  >
+                    {isRenderingVideo ? (
+                      <>
+                        <span className="material-symbols-outlined animate-spin">sync</span>
+                        RENDERIZANDO VIDEO...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined">movie_filter</span>
+                        RENDERIZAR VIDEO MP4
+                      </>
+                    )}
+                  </button>
+                  
+                  {!isNew && (
+                    <a 
+                      href={`/news_${unwrappedParams.id}.mp4`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 text-center text-xs text-primary font-mono hover:underline block"
+                    >
+                      [ VER VIDEO RENDERIZADO ]
+                    </a>
+                  )}
+                </div>
+              )}
               
               <button 
                 type="submit"

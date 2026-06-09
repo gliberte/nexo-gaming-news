@@ -2,6 +2,11 @@
 
 import { getSupabaseServerClient } from "@/utils/supabase";
 import { revalidatePath } from "next/cache";
+import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execPromise = promisify(exec);
 
 export async function submitNewsAction(formData: FormData) {
   const password = formData.get("password") as string;
@@ -148,5 +153,31 @@ export async function generateProductionPlanAction(password: string, tiktokScrip
   }
 
   return data;
+}
+
+export async function triggerVideoRenderAction(password: string, id: string) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword || password !== adminPassword) {
+    throw new Error("Contraseña incorrecta.");
+  }
+
+  try {
+    const videoDir = path.resolve(process.cwd(), "../video");
+    const cmd = `node render_pipeline.js ${id}`;
+    
+    console.log(`Ejecutando render de video para noticia ${id} desde ${videoDir}...`);
+    const { stdout, stderr } = await execPromise(cmd, { cwd: videoDir });
+    console.log("Stdout del render:", stdout);
+    
+    if (stderr) {
+      console.warn("Stderr del render:", stderr);
+    }
+
+    return { success: true, stdout };
+  } catch (err: any) {
+    console.error("Error al renderizar el video:", err);
+    throw new Error(`Fallo en el renderizado: ${err.message}`);
+  }
 }
 

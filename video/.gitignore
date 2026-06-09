@@ -1,0 +1,8 @@
+node_modules/
+assets/scene_*
+assets/temp_*
+assets/soundtrack.mp3
+test.mp4
+out.mp4
+.env
+.DS_Store
