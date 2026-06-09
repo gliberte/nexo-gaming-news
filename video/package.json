@@ -8,6 +8,7 @@
     "render": "remotion render Root.tsx Composition out.mp4"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1064.0",
     "@supabase/supabase-js": "^2.45.6",
     "dotenv": "^16.4.5",
     "react": "^18.2.0",
@@ -16,8 +17,8 @@
     "yt-search": "^2.10.4"
   },
   "devDependencies": {
-    "@remotion/cli": "^4.0.228",
     "@remotion/bundler": "^4.0.228",
+    "@remotion/cli": "^4.0.228",
     "@remotion/renderer": "^4.0.228",
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"

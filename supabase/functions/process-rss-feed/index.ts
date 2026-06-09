@@ -25,7 +25,8 @@ const defaultFeeds = [
   'https://www.gislounge.com/feed/',
   'https://blog.qgis.org/feed/',
   'https://medium.com/feed/google-earth',
-  'https://blog.mapbox.com/feed'
+  'https://blog.mapbox.com/feed',
+  'https://www.gamespot.com/feeds/news/'
 ];
 
 // Soporte para leer desde entorno separando por comas (por si a futuro quieres cambiarlo desde el dashboard)
