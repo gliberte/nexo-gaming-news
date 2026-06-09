@@ -49,6 +49,9 @@ export async function submitNewsAction(formData: FormData) {
     imageUrl = publicUrlData.publicUrl;
   }
 
+  const tiktokScript = formData.get("tiktokScript") as string;
+  const productionPlan = formData.get("productionPlan") as string;
+
   const newsData = {
     title: title,
     web_article: content,
@@ -56,6 +59,8 @@ export async function submitNewsAction(formData: FormData) {
     image_url: imageUrl,
     status: status,
     platform: 'manual',
+    tiktok_script: tiktokScript || null,
+    production_plan: productionPlan ? JSON.parse(productionPlan) : null,
   };
 
   let resultId = id;
@@ -123,5 +128,25 @@ export async function updateNewsStatusAction(password: string, id: string, statu
   revalidatePath(`/noticia/${id}`);
 
   return { success: true };
+}
+
+export async function generateProductionPlanAction(password: string, tiktokScript: string) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword || password !== adminPassword) {
+    throw new Error("Contraseña incorrecta.");
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.functions.invoke('generate-production-plan', {
+    body: { tiktok_script: tiktokScript }
+  });
+
+  if (error) {
+    console.error("Error invoking generate-production-plan:", error);
+    throw new Error("No se pudo generar el plan de producción.");
+  }
+
+  return data;
 }
 

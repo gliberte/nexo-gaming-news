@@ -1,23 +1,30 @@
 "use client";
-
+ 
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { submitNewsAction } from "../../actions";
+import { submitNewsAction, generateProductionPlanAction } from "../../actions";
 import { getAdminNewsItemAction } from "../../data-actions";
 
+const textStylesMap: any = {
+  glitch: '#ff0055',
+  neon_cyan: '#00f0ff',
+  warning_red: '#ff0033',
+  bright_yellow: '#fbff00'
+};
+ 
 export default function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const isNew = unwrappedParams.id === "new";
   const router = useRouter();
-
+ 
   const [password, setPassword] = useState("");
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
-
+ 
   // Form State
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -29,6 +36,12 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
+  // TikTok & Production Plan State
+  const [tiktokScript, setTiktokScript] = useState("");
+  const [productionPlan, setProductionPlan] = useState<any | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
+ 
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,6 +84,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         setYoutubeUrl(data.youtube_url || "");
         setExistingImageUrl(data.image_url || null);
         setStatus(data.status || "draft");
+        setTiktokScript(data.tiktok_script || "");
+        setProductionPlan(data.production_plan || null);
         if (data.tags) {
           try {
             setTags(JSON.parse(data.tags));
@@ -123,6 +138,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     if (existingImageUrl) formData.append("existingImage", existingImageUrl);
     formData.append("status", status);
     formData.append("tags", JSON.stringify(tags));
+    formData.append("tiktokScript", tiktokScript);
+    formData.append("productionPlan", productionPlan ? JSON.stringify(productionPlan) : "");
 
     try {
       await submitNewsAction(formData);
@@ -130,6 +147,25 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     } catch (err: any) {
       setError(err.message || "Ocurrió un error al guardar.");
       setIsSubmitting(false);
+    }
+  };
+
+  const handleGeneratePlan = async () => {
+    if (!tiktokScript) {
+      setError("Por favor, escribe un guion de TikTok primero.");
+      return;
+    }
+    setIsGeneratingPlan(true);
+    setError(null);
+    try {
+      const planData = await generateProductionPlanAction(password, tiktokScript);
+      setProductionPlan(planData);
+      setShowPlan(true);
+    } catch (err: any) {
+      setError("Error al generar el plan de producción. Inténtalo de nuevo.");
+      console.error(err);
+    } finally {
+      setIsGeneratingPlan(false);
     }
   };
 
@@ -348,6 +384,84 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 />
               </div>
 
+              {/* TikTok Script Area */}
+              <div className="space-y-3">
+                <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[14px]">movie</span>
+                  TIKTOK SCRIPT / VIDEO SCRIPT
+                </label>
+                <textarea 
+                  name="tiktokScript"
+                  value={tiktokScript}
+                  onChange={(e) => setTiktokScript(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-4 font-body-md text-on-surface placeholder:text-on-surface-variant/20 outline-none resize-y min-h-[150px] custom-scrollbar" 
+                  placeholder="Insert script here with [Visual cues]..."
+                />
+              </div>
+
+              {/* Video Production Plan Visualizer */}
+              {productionPlan && (
+                <div className="glass-panel p-6 rounded-lg border border-[#ecb2ff]/20 bg-surface-container/30 space-y-4">
+                  <div className="flex items-center justify-between border-b border-outline-variant pb-3">
+                    <h3 className="font-headline text-[16px] font-bold text-secondary flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[20px]">movie_filter</span>
+                      Video Production Plan
+                    </h3>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPlan(!showPlan)}
+                      className="text-xs bg-white/5 hover:bg-white/10 text-white font-bold px-3 py-1.5 rounded-lg border border-white/10 transition-colors cursor-pointer"
+                    >
+                      {showPlan ? 'Hide Plan' : 'Show Plan'}
+                    </button>
+                  </div>
+                  
+                  {showPlan && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-on-surface-variant">
+                        <div>
+                          <p><span className="text-secondary">VOICE TONE:</span> {productionPlan.production_plan?.voice_over?.voice_settings?.intonation_description}</p>
+                          <p className="mt-1.5"><span className="text-secondary">SOUNDTRACK:</span> {productionPlan.production_plan?.soundtrack?.music_style} ({productionPlan.production_plan?.soundtrack?.tempo})</p>
+                        </div>
+                        <div>
+                          <p><span className="text-secondary">RESOLUTION:</span> {productionPlan.production_plan?.render_specifications?.resolution} @ {productionPlan.production_plan?.render_specifications?.fps || 30}fps</p>
+                          <p className="mt-1.5"><span className="text-secondary">COMPOSER:</span> {productionPlan.production_plan?.render_specifications?.composition_library}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 border-t border-outline-variant pt-4">
+                        <p className="font-label-caps text-[11px] text-on-surface-variant">SCENES SEQUENCE ({productionPlan.production_plan?.scenes?.length || 0} scenes)</p>
+                        <div className="space-y-3">
+                          {productionPlan.production_plan?.scenes?.map((scene: any) => (
+                            <div key={scene.scene_id} className="p-4 bg-surface-container-low border border-outline-variant rounded-lg space-y-2">
+                              <div className="flex justify-between text-xs font-mono text-primary font-bold">
+                                <span>Scene {scene.scene_id}</span>
+                                <span>{scene.start_time_seconds}s - {scene.end_time_seconds}s</span>
+                              </div>
+                              <p className="text-sm text-on-surface">{scene.narrative_text}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs pt-2 border-t border-outline-variant/30 text-on-surface-variant">
+                                <div className="space-y-0.5">
+                                  <p className="font-bold text-on-surface-variant/80">Visual Resource:</p>
+                                  <p>{scene.visual_resource?.resource_type}</p>
+                                  <p className="text-[10px] font-mono text-primary/80">Search: "{scene.visual_resource?.youtube_search_query}"</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                  <p className="font-bold text-on-surface-variant/80">Overlay Hook:</p>
+                                  <p className="font-bold" style={{ color: textStylesMap[scene.hook_settings?.text_style] || '#fbff00' }}>
+                                    "{scene.hook_settings?.screen_text_overlay}"
+                                  </p>
+                                  <p className="text-[10px] font-mono">Pos: {scene.hook_settings?.dynamic_subtitles_placement} | Style: {scene.hook_settings?.text_style}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Media Upload Zone */}
               <div className="space-y-3">
                 <label className="font-label-caps text-label-caps text-on-surface-variant">HERO MEDIA &amp; GALLERY</label>
@@ -488,6 +602,25 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               >
                 <span className="material-symbols-outlined">visibility</span>
                 {isPreview ? 'EDIT CONTENT' : 'PREVIEW ARTICLE'}
+              </button>
+              
+              <button 
+                type="button"
+                onClick={handleGeneratePlan}
+                disabled={isGeneratingPlan || !tiktokScript}
+                className="w-full py-4 px-6 border border-secondary text-secondary font-bold clipped-corner hover:bg-secondary/5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isGeneratingPlan ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin">sync</span>
+                    GENERANDO PLAN...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">video_settings</span>
+                    {productionPlan ? 'REGENERAR PLAN DE VIDEO' : 'GENERAR PLAN DE VIDEO'}
+                  </>
+                )}
               </button>
               
               <button 
