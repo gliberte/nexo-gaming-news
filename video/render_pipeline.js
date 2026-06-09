@@ -76,6 +76,8 @@ async function run() {
 
   // 3. Procesar cada escena
   let currentRunningTime = 0.0;
+  let isVoiceMock = false;
+  plan.isVoiceMock = false; // Inicializar por defecto
 
   for (const scene of plan.scenes) {
     const sceneId = scene.scene_id;
@@ -127,12 +129,14 @@ async function run() {
         }
       } catch (err) {
         console.error("   ⚠️ Falló ElevenLabs o medición del audio. Cayendo en mock silent...", err.message);
+        isVoiceMock = true;
         // Fallback a silencio
         execSync(`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t ${originalDuration} -q:a 9 -acodec libmp3lame "${voicePath}" -y`, { stdio: 'ignore' });
         console.log("   ✅ Voice-over mock creado.");
       }
     } else {
       console.log(`🎙️ Generando voice-over mock (silencioso) de ${originalDuration}s...`);
+      isVoiceMock = true;
       try {
         execSync(`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t ${originalDuration} -q:a 9 -acodec libmp3lame "${voicePath}" -y`, { stdio: 'ignore' });
         console.log("   ✅ Voice-over mock creado.");
@@ -220,6 +224,13 @@ async function run() {
   // Calcular la duración total de la composición
   const maxEndTime = Math.max(...plan.scenes.map(s => s.end_time_seconds));
   const totalFrames = Math.round(maxEndTime * 30);
+  
+  // Inyectar estado de voice mock en el plan
+  plan.isVoiceMock = isVoiceMock;
+  if (isVoiceMock) {
+    console.log("ℹ️ Detectado uso de Voice Mock (ElevenLabs deshabilitado o sin cuota). Se configurará música y video desmutado.");
+  }
+
   try {
     console.log(`Compilando video final a: ${outputVideoPath}`);
     // Pasar los props del plan y la duración total a través de CLI

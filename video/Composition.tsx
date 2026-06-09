@@ -196,7 +196,7 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
       {/* Audio de Fondo (Soundtrack) */}
       <Audio 
         src={require('./assets/soundtrack.mp3')} 
-        volume={plan.soundtrack?.volume_level || 0.12}
+        volume={plan.isVoiceMock ? 0.38 : (plan.soundtrack?.volume_level || 0.12)}
         loop
       />
 
@@ -211,16 +211,18 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
             from={startFrame} 
             durationInFrames={durationFrames}
           >
-            {/* Visual de la escena */}
+            {/* Visual de la escena - desmutado sutil si falla ElevenLabs */}
             <Video 
               src={require(`./assets/scene_${scene.scene_id}_visual.mp4`)} 
-              muted 
+              muted={!plan.isVoiceMock}
+              volume={plan.isVoiceMock ? 0.22 : 0}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             
-            {/* Audio de la voz (ElevenLabs TTS mock) */}
+            {/* Audio de la voz (ElevenLabs TTS mock silencioso) */}
             <Audio 
               src={require(`./assets/scene_${scene.scene_id}_voice.mp3`)} 
+              volume={plan.isVoiceMock ? 0 : 1.0}
             />
 
             {/* Subtítulo Dinámico overlay */}
