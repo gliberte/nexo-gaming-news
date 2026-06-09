@@ -57,14 +57,19 @@ async function run() {
     fs.mkdirSync(assetsDir, { recursive: true });
   }
 
-  // 2. Generar Soundtrack Mock (Silencio de 2 minutos)
-  console.log("\n🎵 Generando soundtrack mock...");
+  // 2. Generar Soundtrack Mock si no existe un soundtrack real
+  console.log("\n🎵 Verificando soundtrack...");
   const soundtrackPath = path.join(assetsDir, 'soundtrack.mp3');
-  try {
-    execSync(`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 120 -q:a 9 -acodec libmp3lame "${soundtrackPath}" -y`, { stdio: 'ignore' });
-    console.log("✅ Soundtrack mock creado.");
-  } catch (err) {
-    console.error("❌ Error creando soundtrack mock:", err.message);
+  if (fs.existsSync(soundtrackPath)) {
+    console.log("✅ Soundtrack real encontrado en assets/soundtrack.mp3. Reutilizando...");
+  } else {
+    console.log("   Generando soundtrack mock (silencio)...");
+    try {
+      execSync(`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 120 -q:a 9 -acodec libmp3lame "${soundtrackPath}" -y`, { stdio: 'ignore' });
+      console.log("✅ Soundtrack mock creado.");
+    } catch (err) {
+      console.error("❌ Error creando soundtrack mock:", err.message);
+    }
   }
 
   // 3. Procesar cada escena
@@ -162,9 +167,31 @@ async function run() {
     execSync(`npx remotion render Root.tsx NexoGamingVideo "${outputVideoPath}" --props='${JSON.stringify({ plan })}' --duration=${totalFrames} --overwrite`, { stdio: 'inherit' });
     console.log(`\n🎉 --- RENDERIZADO COMPLETADO CON ÉXITO --- 🎉`);
     console.log(`Video disponible en: /${outputVideoName}`);
+
+    // Enviar video compilado a Telegram
+    await uploadToTelegram(outputVideoPath, newsItem.title);
   } catch (err) {
     console.error("❌ Error durante el renderizado de Remotion:", err.message);
     process.exit(1);
+  }
+}
+
+async function uploadToTelegram(videoPath, title) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.warn("⚠️ Advertencia: TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no están configurados. Se omite el envío a Telegram.");
+    return;
+  }
+
+  console.log(`📤 Enviando video compilado a Telegram...`);
+  const caption = `🎮 *¡Nuevo video listo de Nexo Gaming News!* 🎮\n\n*Título:* ${title}\n\n🎬 Formato optimizado para TikTok, Reels y Shorts. ¡Descárgalo y publícalo!`;
+  try {
+    execSync(`curl -F chat_id="${chatId}" -F video=@"${videoPath}" -F caption="${caption}" -F parse_mode="Markdown" "https://api.telegram.org/bot${token}/sendVideo"`, { stdio: 'ignore' });
+    console.log("✅ Video enviado a Telegram con éxito.");
+  } catch (err) {
+    console.error("❌ Error al enviar video a Telegram via curl:", err.message);
   }
 }
 

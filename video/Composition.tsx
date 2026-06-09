@@ -64,6 +64,39 @@ const AnimatedText: React.FC<{ text: string; styleName: string }> = ({ text, sty
   );
 };
 
+// Componente para los subtítulos de narración
+const NarrativeSubtitles: React.FC<{ text: string }> = ({ text }) => {
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: '120px',
+      left: '60px',
+      right: '60px',
+      display: 'flex',
+      justifyContent: 'center',
+      zIndex: 6,
+    }}>
+      <p style={{
+        fontFamily: 'Sora, sans-serif',
+        fontSize: '32px',
+        color: '#ffffff',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        lineHeight: '1.4',
+        textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(0,0,0,0.8)',
+        padding: '14px 28px',
+        background: 'rgba(14, 14, 15, 0.75)',
+        borderRadius: '16px',
+        border: '1px solid rgba(0, 240, 255, 0.15)',
+        boxShadow: '0 0 15px rgba(0, 0, 0, 0.5)',
+        margin: 0,
+      }}>
+        {text}
+      </p>
+    </div>
+  );
+};
+
 // Componente para la barra de progreso
 const ProgressBar = () => {
   const frame = useCurrentFrame();
@@ -207,6 +240,11 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
                   styleName={scene.hook_settings.text_style}
                 />
               </div>
+            )}
+
+            {/* Subtítulo de Narración Completa */}
+            {scene.narrative_text && (
+              <NarrativeSubtitles text={scene.narrative_text} />
             )}
           </Sequence>
         );
