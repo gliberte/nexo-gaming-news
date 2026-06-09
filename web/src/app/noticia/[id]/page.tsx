@@ -88,7 +88,10 @@ export default async function NoticiaPage({ params }: Props) {
   const videoId = getYoutubeVideoId(item.youtube_url);
   const videoFileName = `news_${id}.mp4`;
   const videoLocalPath = path.join(process.cwd(), 'public', videoFileName);
-  const hasVerticalVideo = fs.existsSync(videoLocalPath);
+  const hasLocalVideo = fs.existsSync(videoLocalPath);
+  const hasVerticalVideo = !!item.video_url || hasLocalVideo;
+  const videoSrc = item.video_url || `/${videoFileName}`;
+
 
   return (
     <main className="container" style={{ maxWidth: hasVerticalVideo ? '1150px' : '800px', transition: 'max-width 0.3s ease-in-out' }}>
@@ -199,7 +202,7 @@ export default async function NoticiaPage({ params }: Props) {
             
             <div className="relative rounded-lg overflow-hidden border border-outline-variant/60 shadow-2xl" style={{ aspectRatio: '9/16' }}>
               <video 
-                src={`/${videoFileName}`}
+                src={videoSrc}
                 controls
                 autoPlay
                 muted
