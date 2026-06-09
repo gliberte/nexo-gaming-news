@@ -87,7 +87,7 @@ export default async function NoticiaPage({ params }: Props) {
 
   return (
     <main className="container" style={{ maxWidth: '800px' }}>
-      <nav style={{ marginBottom: '32px' }}>
+      <nav style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <Link 
           href="/" 
           style={{ 
@@ -103,6 +103,10 @@ export default async function NoticiaPage({ params }: Props) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           <span className="label-caps">VOLVER AL INICIO</span>
         </Link>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
+          <img src="/logo.jpg" alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--primary-container)', flexShrink: 0 }} />
+          <span className="label-caps" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>NEXO GAMING NEWS</span>
+        </Link>
       </nav>
 
       <article className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
@@ -116,7 +120,7 @@ export default async function NoticiaPage({ params }: Props) {
             ></iframe>
           </div>
         ) : item.image_url ? (
-          <div style={{ width: '100%', height: '400px', borderBottom: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+          <div className="article-image-container">
             <img 
               src={item.image_url} 
               alt={item.title}
@@ -125,9 +129,9 @@ export default async function NoticiaPage({ params }: Props) {
           </div>
         ) : null}
         
-        <div style={{ padding: '32px' }}>
+        <div className="article-body">
           <div className="label-caps platform-tag">{item.platform}</div>
-          <h1 style={{ fontSize: '32px', marginBottom: '24px' }}>{item.title}</h1>
+          <h1 className="article-title">{item.title}</h1>
           
           {item.web_article && (
             <div 

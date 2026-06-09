@@ -26,10 +26,17 @@ export default async function Home() {
 
   return (
     <main className="container">
-      <header style={{ marginBottom: '48px', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '24px' }}>
-        <div className="label-caps" style={{ color: 'var(--primary-container)', marginBottom: '8px' }}>Gamer Vanguard Network</div>
-        <h1>NexoGamingNews</h1>
-        <p style={{ color: 'var(--on-surface-variant)' }}>La precisión técnica y el análisis más profundo de la industria de los videojuegos.</p>
+      <header className="brand-header">
+        <img 
+          src="/logo.jpg" 
+          alt="Nexo Gaming News Logo" 
+          className="brand-logo"
+        />
+        <div>
+          <div className="label-caps" style={{ color: 'var(--primary-container)', marginBottom: '8px' }}>Gamer Vanguard Network</div>
+          <h1 style={{ margin: 0 }}>Nexo<wbr/>Gaming<wbr/>News</h1>
+          <p style={{ color: 'var(--on-surface-variant)', marginTop: '8px', marginBottom: 0 }}>La precisión técnica y el análisis más profundo de la industria de los videojuegos.</p>
+        </div>
       </header>
 
       {(!newsItems || newsItems.length === 0) ? (
@@ -53,7 +60,7 @@ export default async function Home() {
                     ></iframe>
                   </div>
                 ) : item.image_url ? (
-                  <div style={{ width: '100%', height: '250px', borderBottom: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                  <div className="card-image-container">
                     <img 
                       src={item.image_url} 
                       alt={item.title}
