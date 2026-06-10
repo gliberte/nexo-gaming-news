@@ -77,13 +77,30 @@ DEVUELVE TU RESPUESTA EXACTAMENTE EN ESTE FORMATO JSON, SIN NADA MÁS:
 `;
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-3.5-flash" });
-    const response = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
+    let model = ai.getGenerativeModel({ model: "gemini-3.5-flash" });
+    let response;
+    try {
+      response = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+    } catch (err: any) {
+      console.warn(`⚠️ Error en gemini-3.5-flash: ${err.message}. Intentando fallback a gemini-2.5-flash...`);
+      try {
+        model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+        response = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+      } catch (fallbackErr: any) {
+        console.error("❌ Falló también el fallback a gemini-2.5-flash:", fallbackErr.message);
+        throw err;
       }
-    });
+    }
 
     const text = response.response.text();
     if (text) {
@@ -92,7 +109,7 @@ DEVUELVE TU RESPUESTA EXACTAMENTE EN ESTE FORMATO JSON, SIN NADA MÁS:
     }
     return null;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Error generando contenido con IA para "${article.title}":`, error.message);
     return null;
   }

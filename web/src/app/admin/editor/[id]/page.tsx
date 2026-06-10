@@ -181,7 +181,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     setIsGeneratingPlan(true);
     setError(null);
     try {
-      const planData = await generateProductionPlanAction(password, tiktokScript);
+      const planData = await generateProductionPlanAction(password, tiktokScript, isNew ? undefined : unwrappedParams.id);
       setProductionPlan(planData);
       setShowPlan(true);
     } catch (err: any) {

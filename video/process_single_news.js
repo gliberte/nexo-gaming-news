@@ -147,8 +147,9 @@ DEVUELVE TU RESPUESTA EXACTAMENTE EN ESTE FORMATO JSON, SIN NADA MÁS NI BLOQUES
         title: generated.spanish_title,
         web_article: generated.web_article,
         youtube_url: youtubeUrl,
-        // Almacenamos el guion de TikTok en la columna correspondiente
-        tiktok_script: generated.tiktok_script
+        tiktok_script: generated.tiktok_script,
+        tweet: generated.tweet,
+        instagram_caption: generated.instagram_caption
       })
       .eq('id', newsId);
 

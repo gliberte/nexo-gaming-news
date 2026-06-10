@@ -139,7 +139,7 @@ export async function updateNewsStatusAction(password: string, id: string, statu
   return { success: true };
 }
 
-export async function generateProductionPlanAction(password: string, tiktokScript: string) {
+export async function generateProductionPlanAction(password: string, tiktokScript: string, id?: string) {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminPassword || password !== adminPassword) {
@@ -154,6 +154,19 @@ export async function generateProductionPlanAction(password: string, tiktokScrip
   if (error) {
     console.error("Error invoking generate-production-plan:", error);
     throw new Error("No se pudo generar el plan de producción.");
+  }
+
+  // Si se provee un ID, guardar inmediatamente en la base de datos para evitar que falle el renderizador
+  if (id) {
+    console.log(`Guardando el plan de producción generado en la base de datos para la noticia ID: ${id}`);
+    const { error: updateError } = await supabase
+      .from('published_news')
+      .update({ production_plan: data })
+      .eq('id', id);
+
+    if (updateError) {
+      console.error("Error al guardar el plan de producción en la base de datos:", updateError);
+    }
   }
 
   return data;

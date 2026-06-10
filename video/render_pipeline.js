@@ -27,14 +27,16 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const FORCE_MUSIC_ONLY = true; // Forzado por decisión de producción para reproducir solo música
+
 async function run() {
   console.log(`🤖 --- INICIANDO PIPELINE DE RENDERIZADO PARA NOTICIA: ${newsId} ---`);
   
-  // 1. Obtener la noticia y el plan de producción de la BD
+  // 1. Obtener la noticia, el plan de producción y la imagen de portada de la BD
   console.log("🔍 Consultando plan de producción en la base de datos...");
   const { data: newsItem, error: dbError } = await supabase
     .from('published_news')
-    .select('title, production_plan')
+    .select('title, production_plan, image_url')
     .eq('id', newsId)
     .single();
 
@@ -91,7 +93,7 @@ async function run() {
     const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
     const elevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || "pNInz6obpgDQGcFmaJgB"; // Default (Adam) u otra voz
 
-    if (elevenLabsApiKey && scene.narrative_text) {
+    if (!FORCE_MUSIC_ONLY && elevenLabsApiKey && scene.narrative_text) {
       console.log(`🎙️ Generando voice-over real con ElevenLabs para escena ${sceneId}...`);
       try {
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${elevenLabsVoiceId}`, {
@@ -151,21 +153,52 @@ async function run() {
     currentRunningTime = scene.end_time_seconds;
     console.log(`   ⏱️ Tiempos de escena sincronizados: ${scene.start_time_seconds.toFixed(2)}s -> ${scene.end_time_seconds.toFixed(2)}s`);
 
-    // B. Buscar clip en YouTube y descargarlo
-    const query = scene.visual_resource.youtube_search_query;
-    console.log(`🔍 Buscando clip en YouTube para: "${query}"`);
+    // B. Buscar clip en YouTube y descargarlo (priorizando Shorts de duración <= 60s)
+    const query = scene.visual_resource?.youtube_search_query || scene.visual_search_query;
     let videoUrl = null;
+    let foundTitle = "";
+    
+    // Intentamos primero buscar con el sufijo "shorts" para encontrar clips verticales de corta duración
+    const queryWithShorts = `${query} shorts`;
     try {
-      const searchRes = await ytSearch(query);
-      const videos = searchRes.videos.slice(0, 1);
-      if (videos.length > 0) {
-        videoUrl = videos[0].url;
-        console.log(`   🟢 Encontrado: "${videos[0].title}" | ${videoUrl}`);
+      console.log(`🔍 Buscando Shorts en YouTube para: "${queryWithShorts}"...`);
+      const searchRes = await ytSearch(queryWithShorts);
+      const shortVideos = searchRes.videos.filter(v => v.seconds > 0 && v.seconds <= 60);
+      
+      if (shortVideos.length > 0) {
+        videoUrl = shortVideos[0].url;
+        foundTitle = shortVideos[0].title;
+        console.log(`   🟢 Short prioritario encontrado: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
       } else {
-        console.log(`   ⚠️ No se encontraron videos. Usando fallback de stock.`);
+        console.log(`   ⚠️ No se encontraron Shorts (<= 60s) con el término 'shorts'.`);
       }
     } catch (err) {
-      console.error(`   ⚠️ Error al buscar en YouTube:`, err.message);
+      console.error(`   ⚠️ Error al buscar Shorts:`, err.message);
+    }
+
+    // Fallback: Si no se encontró ningún Short con la query de shorts, buscamos con la query original
+    if (!videoUrl) {
+      try {
+        console.log(`🔍 Buscando clip general en YouTube para: "${query}"...`);
+        const searchRes = await ytSearch(query);
+        
+        // Comprobar si hay algún video corto (Short) en los resultados de la query general
+        const shortVideos = searchRes.videos.filter(v => v.seconds > 0 && v.seconds <= 60);
+        if (shortVideos.length > 0) {
+          videoUrl = shortVideos[0].url;
+          foundTitle = shortVideos[0].title;
+          console.log(`   🟢 Short encontrado en resultados generales: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
+        } else if (searchRes.videos.length > 0) {
+          // Si no hay shorts, tomamos el video más relevante aunque sea largo
+          videoUrl = searchRes.videos[0].url;
+          foundTitle = searchRes.videos[0].title;
+          console.log(`   🟢 Video general encontrado (primer resultado): "${foundTitle}" | ${videoUrl} (${searchRes.videos[0].duration.timestamp})`);
+        } else {
+          console.log(`   ⚠️ No se encontraron videos. Usando fallback de stock.`);
+        }
+      } catch (err) {
+        console.error(`   ⚠️ Error al buscar clip general en YouTube:`, err.message);
+      }
     }
 
     const tempVideoPath = path.join(assetsDir, `temp_scene_${sceneId}.mp4`);
@@ -176,8 +209,8 @@ async function run() {
     if (videoUrl) {
       console.log(`📥 Descargando video con yt-dlp...`);
       try {
-        // Descargar solo los primeros 45 segundos para agilizar el renderizado
-        execSync(`yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" --merge-output-format mp4 --download-sections "*00:00-00:45" "${videoUrl}" -o "${tempVideoPath}" --no-playlist`, { stdio: 'inherit' });
+        // Descargar los primeros 75 segundos para tener suficiente rango con el offset
+        execSync(`yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" --merge-output-format mp4 --download-sections "*00:00-01:15" "${videoUrl}" -o "${tempVideoPath}" --no-playlist`, { stdio: 'inherit' });
         downloadSuccess = true;
         console.log("✅ Descarga finalizada.");
       } catch (err) {
@@ -185,13 +218,14 @@ async function run() {
       }
     }
 
-    // C. Procesamiento y corte con FFmpeg usando la duración final sincronizada
+    const startOffset = scene.visual_resource?.start_offset !== undefined ? scene.visual_resource.start_offset : 5;
+
+    // C. Procesamiento y corte con FFmpeg usando la duración final sincronizada, preservando el aspect ratio original
     if (downloadSuccess && fs.existsSync(tempVideoPath)) {
-      console.log(`✂️ Recortando y adaptando video a vertical (1080x1920)...`);
+      console.log(`✂️ Recortando video en aspect ratio original (SS: ${startOffset}s, Duración: ${finalSceneDuration}s)...`);
       try {
-        // Escalar y hacer crop a vertical 1080x1920, descartando el audio original para mayor velocidad y robustez
-        // Usamos scale=-1:1920 para garantizar que la altura sea suficiente para el crop vertical
-        execSync(`ffmpeg -ss 0 -t ${finalSceneDuration} -i "${tempVideoPath}" -vf "scale=-1:1920,crop=1080:1920" -c:v libx264 -an "${finalVideoPath}" -y`, { stdio: 'ignore' });
+        // Simplemente cortar y re-codificar el video en su resolución y aspecto original (Remotion se encargará del contain)
+        execSync(`ffmpeg -ss ${startOffset} -t ${finalSceneDuration} -i "${tempVideoPath}" -c:v libx264 -an "${finalVideoPath}" -y`, { stdio: 'ignore' });
         console.log("✅ Video adaptado correctamente.");
         // Limpiar archivo temporal
         if (fs.existsSync(tempVideoPath)) {
@@ -203,17 +237,42 @@ async function run() {
       }
     }
 
-    // Fallback: Si no se pudo descargar o recortar, generar un video de prueba con la duración final sincronizada
-    if (!downloadSuccess || !fs.existsSync(finalVideoPath)) {
-      console.log("⚠️ Generando video de prueba (fallback) con FFmpeg...");
+    // Fallback Premium: Si no se pudo descargar el video, usar la imagen de la noticia en su aspect ratio original
+    let imageFallbackSuccess = false;
+    const fallbackImagePath = path.join(assetsDir, `news_image_fallback.jpg`);
+    if (!downloadSuccess && newsItem.image_url) {
+      console.log(`🖼️ Intentando descargar imagen de portada como fallback: ${newsItem.image_url}`);
       try {
-        // Generar un video de prueba con tono azul oscuro/cyberpunk
+        const imgRes = await fetch(newsItem.image_url);
+        if (imgRes.ok) {
+          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          fs.writeFileSync(fallbackImagePath, buffer);
+          
+          execSync(`ffmpeg -loop 1 -i "${fallbackImagePath}" -t ${finalSceneDuration} -c:v libx264 -pix_fmt yuv420p -an "${finalVideoPath}" -y`, { stdio: 'ignore' });
+          imageFallbackSuccess = true;
+          console.log("✅ Video de fallback generado desde la imagen de portada.");
+        }
+      } catch (imgErr) {
+        console.error("⚠️ Falló la descarga de imagen de fallback:", imgErr.message);
+      }
+    }
+
+    // Fallback de color: Si todo lo demás falla, generar video cyberpunk oscuro
+    if (!downloadSuccess && !imageFallbackSuccess) {
+      console.log("⚠️ Generando video de prueba (color fallback) con FFmpeg...");
+      try {
         execSync(`ffmpeg -f lavfi -i color=c=0x0e0e0f:s=1080x1920:r=30 -t ${finalSceneDuration} -c:v libx264 -pix_fmt yuv420p "${finalVideoPath}" -y`, { stdio: 'ignore' });
         console.log("✅ Video de prueba generado como fallback.");
       } catch (err) {
         console.error("❌ Error grave al generar video fallback:", err.message);
       }
     }
+  }
+
+  // Limpiar imagen de fallback si existe
+  const fallbackImagePath = path.join(assetsDir, `news_image_fallback.jpg`);
+  if (fs.existsSync(fallbackImagePath)) {
+    try { fs.unlinkSync(fallbackImagePath); } catch {}
   }
 
   // 4. Renderizar composición con Remotion

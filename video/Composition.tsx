@@ -64,35 +64,287 @@ const AnimatedText: React.FC<{ text: string; styleName: string }> = ({ text, sty
   );
 };
 
-// Componente para los subtítulos de narración
-const NarrativeSubtitles: React.FC<{ text: string }> = ({ text }) => {
+// Estima la cantidad de líneas de un bloque de texto dado un ancho estimado en caracteres
+const estimateLineCount = (text: string): number => {
+  // Con Luckiest Guy a 60px y ancho de 920px (1080 - 160), 
+  // estimamos un límite de unos 25 caracteres por línea.
+  const charsPerLine = 25;
+  const words = text.trim().split(/\s+/);
+  if (words.length === 0 || words[0] === "") return 0;
+  
+  let lines = 1;
+  let currentLineLength = 0;
+  
+  for (const word of words) {
+    const wordLength = word.length;
+    if (currentLineLength === 0) {
+      currentLineLength = wordLength;
+    } else if (currentLineLength + 1 + wordLength <= charsPerLine) {
+      currentLineLength += 1 + wordLength;
+    } else {
+      lines++;
+      currentLineLength = wordLength;
+    }
+  }
+  return lines;
+};
+
+// Divide una frase/cláusula excesivamente larga para que no supere las 5 líneas
+const splitSentenceIntoClauses = (sentence: string): string[] => {
+  const lines = estimateLineCount(sentence);
+  if (lines <= 5) {
+    return [sentence];
+  }
+  
+  // Dividir por comas, puntos y comas o dos puntos
+  const parts = sentence.split(/([,;:])/);
+  const rawClauses: string[] = [];
+  let current = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      current += parts[i];
+    } else {
+      current += parts[i];
+      rawClauses.push(current.trim());
+      current = "";
+    }
+  }
+  if (current.trim() !== "") {
+    rawClauses.push(current.trim());
+  }
+
+  // Agrupar las cláusulas resultantes sin exceder las 5 líneas
+  const groupedClauses: string[] = [];
+  let temp = "";
+  for (const clause of rawClauses) {
+    if (temp === "") {
+      temp = clause;
+    } else {
+      const combined = temp + " " + clause;
+      if (estimateLineCount(combined) <= 5) {
+        temp = combined;
+      } else {
+        groupedClauses.push(temp);
+        temp = clause;
+      }
+    }
+  }
+  if (temp !== "") {
+    groupedClauses.push(temp);
+  }
+  return groupedClauses;
+};
+
+// Auxiliar para dividir por palabras si falla la separación por puntuación
+const splitByWords = (text: string, maxLines = 5): string[] => {
+  const words = text.trim().split(/\s+/);
+  const chunks: string[] = [];
+  let currentWords: string[] = [];
+  
+  for (const word of words) {
+    currentWords.push(word);
+    if (estimateLineCount(currentWords.join(" ")) > maxLines) {
+      currentWords.pop();
+      chunks.push(currentWords.join(" "));
+      currentWords = [word];
+    }
+  }
+  if (currentWords.length > 0) {
+    chunks.push(currentWords.join(" "));
+  }
+  return chunks;
+};
+
+const splitLongSentence = (sentence: string): string[] => {
+  const initialClauses = splitSentenceIntoClauses(sentence);
+  const finalClauses: string[] = [];
+  
+  for (const clause of initialClauses) {
+    if (estimateLineCount(clause) > 5) {
+      const wordSplits = splitByWords(clause, 5);
+      finalClauses.push(...wordSplits);
+    } else {
+      finalClauses.push(clause);
+    }
+  }
+  return finalClauses;
+};
+
+// Función auxiliar para dividir el texto en fragmentos que representen oraciones o cláusulas legibles
+// Garantiza de forma determinista entre 3 y 5 líneas por párrafo formando siempre frases completas.
+const splitTextIntoReadableSentences = (text: string): string[] => {
+  // 1. Dividir por signos de puntuación de fin de oración (. ! ?)
+  const rawSentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+  const sentences: string[] = [];
+  
+  // 2. Procesar cada oración para asegurar que ninguna exceda las 5 líneas
+  for (const s of rawSentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    
+    const parts = splitLongSentence(trimmed);
+    sentences.push(...parts);
+  }
+
+  // 3. Agrupar las oraciones consecutivamente buscando un tamaño balanceado <= 5 líneas
+  const groups: string[] = [];
+  let currentGroup = "";
+  
+  for (const sentence of sentences) {
+    if (currentGroup === "") {
+      currentGroup = sentence;
+    } else {
+      const combined = currentGroup + " " + sentence;
+      const combinedLines = estimateLineCount(combined);
+      
+      if (combinedLines <= 5) {
+        currentGroup = combined;
+      } else {
+        groups.push(currentGroup);
+        currentGroup = sentence;
+      }
+    }
+  }
+  if (currentGroup !== "") {
+    groups.push(currentGroup);
+  }
+
+  // 4. Intentar fusionar grupos con menos de 3 líneas de forma segura sin pasarse de 5 líneas
+  for (let i = 0; i < groups.length; i++) {
+    const lines = estimateLineCount(groups[i]);
+    if (lines < 3) {
+      // Intentar fusionar con el siguiente grupo
+      if (i + 1 < groups.length) {
+        const nextMerged = groups[i] + " " + groups[i+1];
+        if (estimateLineCount(nextMerged) <= 5) {
+          groups[i] = nextMerged;
+          groups.splice(i + 1, 1);
+          i--;
+          continue;
+        }
+      }
+      // Intentar fusionar con el grupo anterior
+      if (i > 0) {
+        const prevMerged = groups[i-1] + " " + groups[i];
+        if (estimateLineCount(prevMerged) <= 5) {
+          groups[i-1] = prevMerged;
+          groups.splice(i, 1);
+          i--;
+          continue;
+        }
+      }
+    }
+  }
+
+  return groups.map(g => g.trim()).filter(Boolean);
+};
+
+// Componente para resaltar palabras claves con estilo cyberpunk amarillo neón
+const HighlightedText: React.FC<{ text: string }> = ({ text }) => {
+  const keywords = [
+    'ZELDA', 'NINTENDO', 'SWITCH', 'REMAKE', 'OCARINA', 'GAMEPLAY', 'UNREAL', 
+    'ENGINE', 'XBOX', 'GAME', 'PASS', 'WWDC', 'APPLE', 'IPHONE', 'MAC', 
+    'PLAYSTATION', 'PS5', 'SONY', 'MICROSOFT', 'CRISIS', 'PRECIOS', 'SUSCRIPTORES', 
+    'TRAILER', 'OFICIAL', 'REVELADO', 'LANZAMIENTO', 'HYRULE', 'FANS', 'ESPERADO',
+    'TIEMPOS', 'GRÁFICOS', 'ILUMINACIÓN', 'FÍSICAS', 'INMERSIÓN', 'DETALLE'
+  ];
+
+  const words = text.split(/(\s+)/); // Preservar espacios en blanco
+
+  return (
+    <>
+      {words.map((part, index) => {
+        if (part.trim() === '') {
+          return <span key={index}>{part}</span>;
+        }
+
+        const cleanWord = part.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?¡¿"']/g, "").toUpperCase();
+        const isKeyword = keywords.includes(cleanWord);
+
+        if (isKeyword) {
+          return (
+            <span 
+              key={index} 
+              style={{ 
+                color: '#fbff00', // Amarillo neón
+                textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 0 12px rgba(251, 255, 0, 0.6)',
+              }}
+            >
+              {part}
+            </span>
+          );
+        }
+
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+};
+
+// Componente animado individual para cada fragmento de texto (alineado a la izquierda, 3-5 líneas)
+const SubtitleChunk: React.FC<{ text: string; relativeFrame: number; framesPerChunk: number }> = ({ 
+  text, 
+  relativeFrame,
+  framesPerChunk
+}) => {
+  const opacity = interpolate(relativeFrame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
+  const scale = interpolate(relativeFrame, [0, Math.max(15, framesPerChunk)], [0.97, 1.0], { extrapolateRight: 'clamp' });
+
+  return (
+    <div style={{
+      opacity,
+      transform: `scale(${scale})`,
+      fontFamily: "'Luckiest Guy', sans-serif",
+      fontSize: '60px',
+      color: '#ffffff',
+      textAlign: 'left', // Alineado a la izquierda
+      textTransform: 'uppercase',
+      lineHeight: '1.2',
+      textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 8px 16px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 240, 255, 0.2)',
+      maxWidth: '100%',
+      width: '100%', // Forzar ancho al 100% para que textAlign funcione correctamente
+      margin: '0',
+    }}>
+      <HighlightedText text={text} />
+    </div>
+  );
+};
+
+// Componente contenedor para los subtítulos dinámicos de narración
+const DynamicNarrativeSubtitles: React.FC<{ text: string }> = ({ text }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+
+  const chunks = splitTextIntoReadableSentences(text);
+  const numChunks = chunks.length;
+  const framesPerChunk = durationInFrames / numChunks;
+
+  const activeChunkIndex = Math.min(
+    Math.floor(frame / framesPerChunk),
+    numChunks - 1
+  );
+  
+  const activeText = chunks[activeChunkIndex] || '';
+  const chunkStartFrame = Math.floor(activeChunkIndex * framesPerChunk);
+  const relativeFrame = frame - chunkStartFrame;
+
   return (
     <div style={{
       position: 'absolute',
-      bottom: '120px',
-      left: '60px',
-      right: '60px',
+      bottom: '180px',
+      left: '80px', // Margen izquierdo consistente
+      right: '80px',
       display: 'flex',
-      justifyContent: 'center',
+      justifyContent: 'flex-start', // Flex start para alinear a la izquierda
+      alignItems: 'center',
       zIndex: 6,
     }}>
-      <p style={{
-        fontFamily: 'Sora, sans-serif',
-        fontSize: '32px',
-        color: '#ffffff',
-        fontWeight: 'bold',
-        textAlign: 'center',
-        lineHeight: '1.4',
-        textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(0,0,0,0.8)',
-        padding: '14px 28px',
-        background: 'rgba(14, 14, 15, 0.75)',
-        borderRadius: '16px',
-        border: '1px solid rgba(0, 240, 255, 0.15)',
-        boxShadow: '0 0 15px rgba(0, 0, 0, 0.5)',
-        margin: 0,
-      }}>
-        {text}
-      </p>
+      <SubtitleChunk 
+        key={activeChunkIndex} // Resetea el componente al cambiar el chunk
+        text={activeText} 
+        relativeFrame={relativeFrame}
+        framesPerChunk={framesPerChunk}
+      />
     </div>
   );
 };
@@ -136,7 +388,7 @@ const CyberHUD = () => {
       <div style={{ position: 'absolute', bottom: '35px', left: '25px', width: '20px', height: '20px', borderBottom: '3px solid #ff0055', borderLeft: '3px solid #ff0055' }} />
       <div style={{ position: 'absolute', bottom: '35px', right: '25px', width: '20px', height: '20px', borderBottom: '3px solid #00f0ff', borderRight: '3px solid #00f0ff' }} />
 
-      {/* Marca de agua Nexo Gaming */}
+      {/* Marca de agua Nexo Gaming con Logo */}
       <div style={{
         position: 'absolute',
         top: '45px',
@@ -146,21 +398,33 @@ const CyberHUD = () => {
         justifyContent: 'center',
       }}>
         <div style={{
-          background: 'rgba(14, 14, 15, 0.75)',
-          backdropFilter: 'blur(4px)',
-          border: '1px solid rgba(0, 240, 255, 0.3)',
-          padding: '6px 16px',
-          borderRadius: '4px',
-          boxShadow: '0 0 10px rgba(0, 240, 255, 0.15)',
+          background: 'rgba(14, 14, 15, 0.85)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(0, 240, 255, 0.35)',
+          padding: '8px 20px',
+          borderRadius: '30px',
+          boxShadow: '0 0 20px rgba(0, 240, 255, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
         }}>
+          <img 
+            src={require('./assets/logo.jpg')} 
+            style={{ 
+              width: '32px', 
+              height: '32px', 
+              borderRadius: '50%',
+              border: '1px solid #00f0ff',
+            }} 
+          />
           <span style={{
             fontFamily: 'Orbitron, sans-serif',
-            fontSize: '14px',
-            color: '#00f0ff',
-            fontWeight: 800,
+            fontSize: '15px',
+            color: '#ffffff',
+            fontWeight: 900,
             letterSpacing: '3px',
             textShadow: '0 0 5px rgba(0, 240, 255, 0.5)',
-          }}>NEXO GAMING NEWS</span>
+          }}>NEXO GAMING</span>
         </div>
       </div>
 
@@ -189,7 +453,7 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
       {/* Importar fuentes de Google Fonts */}
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800;900&family=Sora:wght@400;700;800&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Orbitron:wght@500;800;900&family=Sora:wght@400;700;800&display=swap');
         `}
       </style>
 
@@ -216,7 +480,7 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
               src={require(`./assets/scene_${scene.scene_id}_visual.mp4`)} 
               muted={!plan.isVoiceMock}
               volume={plan.isVoiceMock ? 0.22 : 0}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
             
             {/* Audio de la voz (ElevenLabs TTS mock silencioso) */}
@@ -244,9 +508,9 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
               </div>
             )}
 
-            {/* Subtítulo de Narración Completa */}
+            {/* Subtítulo de Narración Completa (Dinámico y Animado) */}
             {scene.narrative_text && (
-              <NarrativeSubtitles text={scene.narrative_text} />
+              <DynamicNarrativeSubtitles text={scene.narrative_text} />
             )}
           </Sequence>
         );

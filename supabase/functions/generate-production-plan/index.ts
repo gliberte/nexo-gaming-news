@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     }
 
     const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: "gemini-3.5-flash" });
+    let model = ai.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const systemInstructions = `
 Contexto: Eres un sistema de producción audiovisual automatizado. Tu objetivo es convertir un Guion de TikTok (ya generado) en un Plan de Producción Audiovisual para Instagram, TikTok, YouTube Shorts y la Web.
@@ -90,14 +90,33 @@ Reglas estrictas:
 3. El JSON de salida debe ser perfectamente válido y parseable, sin comentarios ni explicaciones adicionales fuera del bloque JSON.
     `.trim();
 
-    const response = await model.generateContent({
-      contents: [
-        { role: "user", parts: [{ text: systemInstructions + "\n\nGUION DE ENTRADA:\n" + tiktok_script }] }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
+    let response;
+    try {
+      response = await model.generateContent({
+        contents: [
+          { role: "user", parts: [{ text: systemInstructions + "\n\nGUION DE ENTRADA:\n" + tiktok_script }] }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+    } catch (err: any) {
+      console.warn(`⚠️ Error en gemini-3.5-flash: ${err.message}. Intentando fallback a gemini-2.5-flash...`);
+      try {
+        model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+        response = await model.generateContent({
+          contents: [
+            { role: "user", parts: [{ text: systemInstructions + "\n\nGUION DE ENTRADA:\n" + tiktok_script }] }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+      } catch (fallbackErr: any) {
+        console.error("❌ Falló también el fallback a gemini-2.5-flash:", fallbackErr.message);
+        throw new Error(`Original Error: ${err.message} | Fallback Error: ${fallbackErr.message}`);
       }
-    });
+    }
 
     const outputText = response.response.text();
     const parsed = JSON.parse(outputText);
