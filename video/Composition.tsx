@@ -469,6 +469,142 @@ const CyberHUD = () => {
   );
 };
 
+// Componente premium para la pantalla final (Outro) de Nexo Gaming News
+const OutroScene: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  // Animación de escala del logo con efecto elástico sutil
+  const logoScale = interpolate(frame, [0, 25], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+  // Añadir un pulso sutil después de que aparezca
+  const pulseScale = frame > 25 ? 1 + Math.sin((frame - 25) / 12) * 0.025 : logoScale;
+
+  const logoOpacity = interpolate(frame, [0, 15], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+
+  const textOpacity = interpolate(frame, [20, 35], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+
+  const urlOpacity = interpolate(frame, [30, 45], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+
+  return (
+    <AbsoluteFill style={{ 
+      backgroundColor: '#0e0e0f',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 4,
+    }}>
+      {/* Fondo Cyberpunk con degradado radial y destellos de color */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(circle, #1a1525 0%, #08080a 100%)',
+      }} />
+
+      {/* Red de cuadrícula decorativa */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px)',
+        backgroundSize: '60px 60px',
+        opacity: 0.7,
+      }} />
+
+      {/* Círculo de luz neon de fondo */}
+      <div style={{
+        position: 'absolute',
+        width: '450px',
+        height: '450px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0, 240, 255, 0.15) 0%, transparent 70%)',
+        transform: `scale(${1 + Math.sin(frame / 15) * 0.08})`,
+        filter: 'blur(20px)',
+      }} />
+
+      <div style={{
+        position: 'absolute',
+        width: '450px',
+        height: '450px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255, 0, 85, 0.1) 0%, transparent 70%)',
+        transform: `scale(${1 - Math.sin(frame / 15) * 0.08})`,
+        filter: 'blur(30px)',
+      }} />
+
+      {/* Contenedor del Logo con animación */}
+      <div style={{
+        transform: `scale(${pulseScale})`,
+        opacity: logoOpacity,
+        background: 'rgba(14, 14, 15, 0.9)',
+        border: '3px solid #00f0ff',
+        padding: '12px',
+        borderRadius: '50%',
+        boxShadow: '0 0 50px rgba(0, 240, 255, 0.35)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '50px',
+        zIndex: 5,
+      }}>
+        <img 
+          src={require('./assets/logo.jpg')} 
+          style={{ 
+            width: '180px', 
+            height: '180px', 
+            borderRadius: '50%',
+            border: '2px solid #00f0ff',
+          }} 
+        />
+      </div>
+
+      {/* Texto de la marca */}
+      <div style={{
+        opacity: textOpacity,
+        textAlign: 'center',
+        zIndex: 5,
+        marginBottom: '20px',
+      }}>
+        <h2 style={{
+          fontFamily: "'Orbitron', sans-serif",
+          fontSize: '36px',
+          color: '#ffffff',
+          fontWeight: 900,
+          letterSpacing: '8px',
+          textTransform: 'uppercase',
+          margin: 0,
+          textShadow: '0 0 15px rgba(0, 240, 255, 0.8), 0 0 25px rgba(0, 240, 255, 0.4)',
+        }}>
+          Nexo Gaming News
+        </h2>
+      </div>
+
+      {/* URL web */}
+      <div style={{
+        opacity: urlOpacity,
+        zIndex: 5,
+      }}>
+        <p style={{
+          fontFamily: "'Luckiest Guy', sans-serif",
+          fontSize: '42px',
+          color: '#fbff00', // Amarillo neón
+          margin: 0,
+          letterSpacing: '1px',
+          textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 0 25px rgba(251, 255, 0, 0.7)',
+        }}>
+          nexogamingnews.vercel.app
+        </p>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
   if (!plan || !plan.scenes || plan.scenes.length === 0) {
     return (
@@ -495,9 +631,20 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
       />
 
       {/* Escenas Secuenciales */}
-      {plan.scenes.map((scene: any) => {
+      {plan.scenes.map((scene: any, index: number) => {
         const startFrame = Math.round(scene.start_time_seconds * 30);
         const durationFrames = Math.round((scene.end_time_seconds - scene.start_time_seconds) * 30);
+        
+        // Determinar si es una escena de outro
+        const isOutro = scene.visual_resource?.resource_type === 'Logo animado' || 
+                        scene.visual_resource?.youtube_search_query?.toLowerCase().includes('outro') ||
+                        (index === plan.scenes.length - 1 && (
+                          scene.visual_resource?.resource_type?.toLowerCase().includes('logo') || 
+                          scene.visual_resource?.resource_type?.toLowerCase().includes('outro') ||
+                          scene.narrative_text?.toLowerCase().includes('sigueme') ||
+                          scene.narrative_text?.toLowerCase().includes('suscribete') ||
+                          scene.narrative_text?.toLowerCase().includes('próximo video')
+                        ));
         
         return (
           <Sequence 
@@ -506,12 +653,16 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
             durationInFrames={durationFrames}
           >
             {/* Visual de la escena - desmutado sutil si falla ElevenLabs */}
-            <Video 
-              src={require(`./assets/scene_${scene.scene_id}_visual.mp4`)} 
-              muted={!plan.isVoiceMock}
-              volume={plan.isVoiceMock ? 0.22 : 0}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
+            {isOutro ? (
+              <OutroScene />
+            ) : (
+              <Video 
+                src={require(`./assets/scene_${scene.scene_id}_visual.mp4`)} 
+                muted={!plan.isVoiceMock}
+                volume={plan.isVoiceMock ? 0.22 : 0}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            )}
             
             {/* Audio de la voz (ElevenLabs TTS mock silencioso) */}
             <Audio 

@@ -158,46 +158,60 @@ async function run() {
     let videoUrl = null;
     let foundTitle = "";
     
-    // Intentamos primero buscar con el sufijo "shorts" para encontrar clips verticales de corta duración
-    const queryWithShorts = `${query} shorts`;
-    try {
-      console.log(`🔍 Buscando Shorts en YouTube para: "${queryWithShorts}"...`);
-      const searchRes = await ytSearch(queryWithShorts);
-      const shortVideos = searchRes.videos.filter(v => v.seconds > 0 && v.seconds <= 60);
-      
-      if (shortVideos.length > 0) {
-        videoUrl = shortVideos[0].url;
-        foundTitle = shortVideos[0].title;
-        console.log(`   🟢 Short prioritario encontrado: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
-      } else {
-        console.log(`   ⚠️ No se encontraron Shorts (<= 60s) con el término 'shorts'.`);
-      }
-    } catch (err) {
-      console.error(`   ⚠️ Error al buscar Shorts:`, err.message);
-    }
+    const isOutroScene = scene.visual_resource?.resource_type === 'Logo animado' || 
+                         (query && query.toLowerCase().includes('outro')) ||
+                         (plan.scenes.indexOf(scene) === plan.scenes.length - 1 && (
+                           (scene.visual_resource?.resource_type && scene.visual_resource.resource_type.toLowerCase().includes('logo')) || 
+                           (scene.visual_resource?.resource_type && scene.visual_resource.resource_type.toLowerCase().includes('outro')) ||
+                           (scene.narrative_text && scene.narrative_text.toLowerCase().includes('sigueme')) ||
+                           (scene.narrative_text && scene.narrative_text.toLowerCase().includes('suscribete')) ||
+                           (scene.narrative_text && scene.narrative_text.toLowerCase().includes('próximo video'))
+                         ));
 
-    // Fallback: Si no se encontró ningún Short con la query de shorts, buscamos con la query original
-    if (!videoUrl) {
+    if (isOutroScene) {
+      console.log(`ℹ️ Escena ${sceneId} identificada como Outro. Saltando búsqueda y descarga de YouTube.`);
+    } else {
+      // Intentamos primero buscar con el sufijo "shorts" para encontrar clips verticales de corta duración
+      const queryWithShorts = `${query} shorts`;
       try {
-        console.log(`🔍 Buscando clip general en YouTube para: "${query}"...`);
-        const searchRes = await ytSearch(query);
-        
-        // Comprobar si hay algún video corto (Short) en los resultados de la query general
+        console.log(`🔍 Buscando Shorts en YouTube para: "${queryWithShorts}"...`);
+        const searchRes = await ytSearch(queryWithShorts);
         const shortVideos = searchRes.videos.filter(v => v.seconds > 0 && v.seconds <= 60);
+        
         if (shortVideos.length > 0) {
           videoUrl = shortVideos[0].url;
           foundTitle = shortVideos[0].title;
-          console.log(`   🟢 Short encontrado en resultados generales: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
-        } else if (searchRes.videos.length > 0) {
-          // Si no hay shorts, tomamos el video más relevante aunque sea largo
-          videoUrl = searchRes.videos[0].url;
-          foundTitle = searchRes.videos[0].title;
-          console.log(`   🟢 Video general encontrado (primer resultado): "${foundTitle}" | ${videoUrl} (${searchRes.videos[0].duration.timestamp})`);
+          console.log(`   🟢 Short prioritario encontrado: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
         } else {
-          console.log(`   ⚠️ No se encontraron videos. Usando fallback de stock.`);
+          console.log(`   ⚠️ No se encontraron Shorts (<= 60s) con el término 'shorts'.`);
         }
       } catch (err) {
-        console.error(`   ⚠️ Error al buscar clip general en YouTube:`, err.message);
+        console.error(`   ⚠️ Error al buscar Shorts:`, err.message);
+      }
+
+      // Fallback: Si no se encontró ningún Short con la query de shorts, buscamos con la query original
+      if (!videoUrl && query) {
+        try {
+          console.log(`🔍 Buscando clip general en YouTube para: "${query}"...`);
+          const searchRes = await ytSearch(query);
+          
+          // Comprobar si hay algún video corto (Short) en los resultados de la query general
+          const shortVideos = searchRes.videos.filter(v => v.seconds > 0 && v.seconds <= 60);
+          if (shortVideos.length > 0) {
+            videoUrl = shortVideos[0].url;
+            foundTitle = shortVideos[0].title;
+            console.log(`   🟢 Short encontrado en resultados generales: "${foundTitle}" | ${videoUrl} (${shortVideos[0].duration.timestamp})`);
+          } else if (searchRes.videos.length > 0) {
+            // Si no hay shorts, tomamos el video más relevante aunque sea largo
+            videoUrl = searchRes.videos[0].url;
+            foundTitle = searchRes.videos[0].title;
+            console.log(`   🟢 Video general encontrado (primer resultado): "${foundTitle}" | ${videoUrl} (${searchRes.videos[0].duration.timestamp})`);
+          } else {
+            console.log(`   ⚠️ No se encontraron videos. Usando fallback de stock.`);
+          }
+        } catch (err) {
+          console.error(`   ⚠️ Error al buscar clip general en YouTube:`, err.message);
+        }
       }
     }
 
@@ -206,7 +220,7 @@ async function run() {
 
     let downloadSuccess = false;
 
-    if (videoUrl) {
+    if (!isOutroScene && videoUrl) {
       console.log(`📥 Descargando video con yt-dlp...`);
       try {
         // Descargar los primeros 75 segundos para tener suficiente rango con el offset
@@ -240,7 +254,7 @@ async function run() {
     // Fallback Premium: Si no se pudo descargar el video, usar la imagen de la noticia en su aspect ratio original
     let imageFallbackSuccess = false;
     const fallbackImagePath = path.join(assetsDir, `news_image_fallback.jpg`);
-    if (!downloadSuccess && newsItem.image_url) {
+    if (!downloadSuccess && !isOutroScene && newsItem.image_url) {
       console.log(`🖼️ Intentando descargar imagen de portada como fallback: ${newsItem.image_url}`);
       try {
         const imgRes = await fetch(newsItem.image_url);
@@ -257,8 +271,8 @@ async function run() {
       }
     }
 
-    // Fallback de color: Si todo lo demás falla, generar video cyberpunk oscuro
-    if (!downloadSuccess && !imageFallbackSuccess) {
+    // Fallback de color: Si todo lo demás falla o es un Outro, generar video cyberpunk oscuro
+    if (!downloadSuccess && (!imageFallbackSuccess || isOutroScene)) {
       console.log("⚠️ Generando video de prueba (color fallback) con FFmpeg...");
       try {
         execSync(`ffmpeg -f lavfi -i color=c=0x0e0e0f:s=1080x1920:r=30 -t ${finalSceneDuration} -c:v libx264 -pix_fmt yuv420p "${finalVideoPath}" -y`, { stdio: 'ignore' });
