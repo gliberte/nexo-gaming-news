@@ -186,7 +186,7 @@ export default async function NoticiaPage({ params }: Props) {
                 }}
               >
                 {item.platform?.toLowerCase() === "manual" ? (
-                  <span className="label-caps">LEER NOTICIA ORIGINAL EN NGM</span>
+                  <span className="label-caps">LEER NOTICIA ORIGINAL</span>
                 ) : (
                   <span className="label-caps">LEER FUENTE ORIGINAL EN {(item.platform || "IGN").toUpperCase()}</span>
                 )}
