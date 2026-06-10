@@ -47,12 +47,40 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Manual processing states
+  // Estados para procesamiento manual
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [isProcessingManual, setIsProcessingManual] = useState(false);
   const [manualSuccessMessage, setManualSuccessMessage] = useState<string | null>(null);
   const [manualErrorMessage, setManualErrorMessage] = useState<string | null>(null);
+
+  const handleManualProcess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pass = sessionStorage.getItem("admin_password");
+    if (!pass) {
+      setManualErrorMessage("Error de sesión. Por favor, vuelve a ingresar la contraseña.");
+      return;
+    }
+    
+    setIsProcessingManual(true);
+    setManualSuccessMessage(null);
+    setManualErrorMessage(null);
+    
+    try {
+      const result = await processManualNewsAction(pass, manualTitle, manualUrl);
+      if (result && result.success) {
+        setManualSuccessMessage("¡Noticia procesada y guardada con éxito! Revisa la notificación en Telegram.");
+        setManualTitle("");
+        setManualUrl("");
+        loadData(pass);
+      }
+    } catch (err: any) {
+      setManualErrorMessage("Error al procesar la noticia: " + (err.message || "Fallo en la comunicación."));
+      console.error(err);
+    } finally {
+      setIsProcessingManual(false);
+    }
+  };
 
   useEffect(() => {
     const savedPassword = sessionStorage.getItem("admin_password");
@@ -85,42 +113,20 @@ export default function AdminDashboard() {
 
   const loadData = async (pass: string) => {
     try {
-      const data = await getAdminDataAction(pass);
-      setNews(data);
+      const result = await getAdminDataAction(pass);
+      if (result && !result.success) {
+        setError(result.error || "Error desconocido.");
+        if (result.error === "Contraseña incorrecta.") {
+          sessionStorage.removeItem("admin_password");
+        }
+        return;
+      }
+      setNews(result.data || []);
     } catch (err: any) {
       console.error(err);
       setError("Error al cargar los datos: " + (err.message || "Error desconocido"));
-      sessionStorage.removeItem("admin_password");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleManualProcess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const pass = sessionStorage.getItem("admin_password");
-    if (!pass) {
-      setManualErrorMessage("Error de sesión. Por favor, vuelve a ingresar la contraseña.");
-      return;
-    }
-    
-    setIsProcessingManual(true);
-    setManualSuccessMessage(null);
-    setManualErrorMessage(null);
-    
-    try {
-      const result = await processManualNewsAction(pass, manualTitle, manualUrl);
-      if (result && result.success) {
-        setManualSuccessMessage("¡Noticia procesada y guardada con éxito! Revisa la notificación en Telegram.");
-        setManualTitle("");
-        setManualUrl("");
-        loadData(pass);
-      }
-    } catch (err: any) {
-      setManualErrorMessage("Error al procesar la noticia: " + (err.message || "Fallo en la comunicación."));
-      console.error(err);
-    } finally {
-      setIsProcessingManual(false);
     }
   };
 

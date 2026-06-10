@@ -90,7 +90,13 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   const loadData = async (pass: string, id: string) => {
     try {
-      const data = await getAdminNewsItemAction(pass, id);
+      const result = await getAdminNewsItemAction(pass, id);
+      if (result && !result.success) {
+        setError(result.error || "Error al cargar la noticia.");
+        return;
+      }
+      
+      const data = result.data;
       if (data) {
         setTitle(data.title || "");
         setContent(data.web_article || "");
@@ -112,7 +118,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         }
       }
     } catch (err: any) {
-      setError("Error al cargar la noticia. Verifica tu sesión.");
+      setError("Error al cargar la noticia. Verifica tu sesión o conexión.");
     } finally {
       setIsInitializing(false);
     }

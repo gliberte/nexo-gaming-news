@@ -225,7 +225,8 @@ Devuelve tu respuesta EXACTAMENTE en este formato JSON, sin comentarios adiciona
 }
   `.trim();
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+  const url35 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+  const urlFallback = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   
   let attempts = 3;
   let delay = 1000;
@@ -233,7 +234,8 @@ Devuelve tu respuesta EXACTAMENTE en este formato JSON, sin comentarios adiciona
 
   for (let i = 0; i < attempts; i++) {
     try {
-      const response = await fetch(url, {
+      let currentUrl = url35;
+      let response = await fetch(currentUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -254,7 +256,32 @@ Devuelve tu respuesta EXACTAMENTE en este formato JSON, sin comentarios adiciona
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Google Gemini API falló: ${errorText}`);
+        console.warn(`⚠️ Error en gemini-3.5-flash: status ${response.status}. Detalle: ${errorText}. Intentando fallback a gemini-2.5-flash...`);
+        
+        currentUrl = urlFallback;
+        response = await fetch(currentUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const finalErrorText = await response.text();
+          throw new Error(`Google Gemini API falló (incluyendo fallback): ${finalErrorText}`);
+        }
       }
 
       const json = await response.json();
@@ -489,37 +516,27 @@ export async function processManualNewsAction(password: string, title: string, u
     throw new Error("Contraseña incorrecta.");
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || "http://localhost:54321";
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseKey) {
-    throw new Error("Faltan credenciales de Supabase en el servidor.");
-  }
+  const supabase = getSupabaseServerClient();
 
   try {
     console.log(`Invocando Edge Function process-gaming-news de forma manual para: "${title}" - ${url}...`);
-    const response = await fetch(`${supabaseUrl}/functions/v1/process-gaming-news`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseKey}`
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke("process-gaming-news", {
+      body: {
         title,
         url,
         force: true
-      })
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Edge Function process-gaming-news falló: ${errorText}`);
+    if (error) {
+      console.error("Error al invocar edge function process-gaming-news:", error);
+      throw new Error(error.message || "Fallo en la Edge Function.");
     }
 
-    const data = await response.json();
     return { success: true, data };
   } catch (err: any) {
     console.error("Error en processManualNewsAction:", err);
     throw new Error(`Error al invocar la función de procesamiento: ${err.message}`);
   }
 }
+
