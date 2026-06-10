@@ -418,26 +418,38 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
   if (!tweet) tweet = "No redactado";
   if (!instagram) instagram = "No redactado";
 
+  // Helper to escape HTML characters for Telegram
+  const escapeHtml = (text: string) => {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  };
+
+  const safeTitle = escapeHtml(title);
+  const safeTweet = escapeHtml(tweet);
+  const safeInstagram = escapeHtml(instagram);
+
   let caption = `
-🎮 *Contenidos Curados: ${title}* 🎮
+🎮 <b>Contenidos Curados: ${safeTitle}</b> 🎮
 
-🐦 *Borrador para X (Twitter):*
-${tweet}
+🐦 <b>Borrador para X (Twitter):</b>
+${safeTweet}
 
-📸 *Borrador para Instagram:*
-${instagram}
+📸 <b>Borrador para Instagram:</b>
+${safeInstagram}
   `.trim();
 
   if (tiktokComments.length > 0 || tiktokTags.length > 0) {
-    caption += `\n\n🎵 *Sugerencias para TikTok:*`;
+    caption += `\n\n🎵 <b>Sugerencias para TikTok:</b>`;
     if (tiktokComments.length > 0) {
-      caption += `\n💬 *Comentarios gancho:*`;
+      caption += `\n💬 <b>Comentarios gancho:</b>`;
       tiktokComments.forEach(c => {
-        caption += `\n- ${c}`;
+        caption += `\n- ${escapeHtml(c)}`;
       });
     }
     if (tiktokTags.length > 0) {
-      caption += `\n🏷️ *Tags recomendados:* ${tiktokTags.join(" ")}`;
+      caption += `\n🏷️ <b>Tags recomendados:</b> ${tiktokTags.map(escapeHtml).join(" ")}`;
     }
   }
 
@@ -451,7 +463,7 @@ ${instagram}
       let followUpText = "";
       
       if (caption.length > 1024) {
-        videoCaption = `🎮 *Contenidos Curados: ${title}* 🎮\n\n🎥 *Video de TikTok* (Textos curados abajo en la respuesta)`;
+        videoCaption = `🎮 <b>Contenidos Curados: ${safeTitle}</b> 🎮\n\n🎥 <b>Video de TikTok</b> (Textos curados abajo en la respuesta)`;
         followUpText = caption;
       }
 
@@ -463,7 +475,7 @@ ${instagram}
             chat_id: chatId,
             video: videoUrl,
             caption: videoCaption,
-            parse_mode: 'Markdown'
+            parse_mode: 'HTML'
           })
         });
 
@@ -486,7 +498,7 @@ ${instagram}
             body: JSON.stringify({
               chat_id: chatId,
               text: followUpText,
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               reply_to_message_id: videoMessageId
             })
           });
@@ -508,9 +520,9 @@ ${instagram}
       
       let textContent = caption;
       if (videoUrl) {
-        textContent += `\n\n📥 *Descargar Video (R2 Fallback):* \n🔗 ${videoUrl}`;
+        textContent += `\n\n📥 <b>Descargar Video (R2 Fallback):</b> \n🔗 <a href="${videoUrl}">Click aquí para ver o descargar</a>`;
       } else {
-        textContent += "\n\n🎥 *Video TikTok (Remotion):* No renderizado en R2 aún.";
+        textContent += "\n\n🎥 <b>Video TikTok (Remotion):</b> No renderizado en R2 aún.";
       }
 
       const response = await fetch(telegramMessageUrl, {
@@ -519,7 +531,7 @@ ${instagram}
         body: JSON.stringify({
           chat_id: chatId,
           text: textContent,
-          parse_mode: 'Markdown'
+          parse_mode: 'HTML'
         })
       });
 
