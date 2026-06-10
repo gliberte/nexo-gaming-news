@@ -286,11 +286,11 @@ async function run() {
   
   // Inyectar estado de voice mock en el plan
   plan.isVoiceMock = isVoiceMock;
-  if (isVoiceMock) {
-    console.log("ℹ️ Detectado uso de Voice Mock (ElevenLabs deshabilitado o sin cuota). Se configurará música y video desmutado.");
-  }
-
   const propsFilePath = path.join(assetsDir, `props_${newsId}.json`);
+  const coverPropsFilePath = path.join(assetsDir, `cover_props_${newsId}.json`);
+  const outputCoverName = `cover_${newsId}.jpg`;
+  const outputCoverPath = path.resolve(__dirname, '..', 'web', 'public', outputCoverName);
+
   try {
     console.log(`Compilando video final a: ${outputVideoPath}`);
     // Escribir los props en un archivo JSON temporal para evitar problemas de escape de caracteres en el shell
@@ -300,24 +300,65 @@ async function run() {
     console.log(`\n🎉 --- RENDERIZADO COMPLETADO CON ÉXITO --- 🎉`);
     console.log(`Video disponible en: /${outputVideoName}`);
 
-    // Limpiar archivo temporal de props
+    // Limpiar archivo temporal de props de video
     if (fs.existsSync(propsFilePath)) {
       try { fs.unlinkSync(propsFilePath); } catch {}
     }
 
+    // --- RENDERIZAR PORTADA DE VIDEO COMPUESTA ---
+    console.log("\n🖼️ --- GENERANDO PORTADA DE VIDEO COMPUESTA (GRATUITA) ---");
+    let coverTitle = newsItem.title;
+    if (plan.tiktok_cover_title) {
+      coverTitle = plan.tiktok_cover_title;
+    } else if (plan.scenes?.[0]?.hook_settings?.screen_text_overlay) {
+      coverTitle = plan.scenes[0].hook_settings.screen_text_overlay;
+    }
+
+    let r2CoverUrl = null;
+    try {
+      fs.writeFileSync(coverPropsFilePath, JSON.stringify({ title: coverTitle, imageUrl: newsItem.image_url }));
+      console.log(`Renderizando portada still a: ${outputCoverPath}`);
+      execSync(`npx remotion still Root.tsx NexoGamingCover "${outputCoverPath}" --props="${coverPropsFilePath}" --overwrite`, { stdio: 'inherit' });
+      console.log(`✅ Portada still compilada con éxito.`);
+
+      if (fs.existsSync(coverPropsFilePath)) {
+        try { fs.unlinkSync(coverPropsFilePath); } catch {}
+      }
+
+      // Subir la portada a R2
+      if (fs.existsSync(outputCoverPath)) {
+        r2CoverUrl = await uploadToR2(outputCoverPath, `cover_${newsId}.jpg`);
+      }
+    } catch (coverErr) {
+      console.error("⚠️ Error generando la portada de video (continuando con el resto del flujo):", coverErr.message);
+      if (fs.existsSync(coverPropsFilePath)) {
+        try { fs.unlinkSync(coverPropsFilePath); } catch {}
+      }
+    }
+
     // 5. Subir a Cloudflare R2 y guardar la URL en la base de datos
-    const r2Url = await uploadToR2(outputVideoPath, newsId);
+    const r2Url = await uploadToR2(outputVideoPath, `news_${newsId}.mp4`);
+    
+    // Preparar objeto de actualización en Supabase
+    const updatePayload = {};
     if (r2Url) {
-      console.log(`💾 Actualizando base de datos en Supabase con la URL del video...`);
+      updatePayload.video_url = r2Url;
+    }
+    if (r2CoverUrl) {
+      updatePayload.image_url = r2CoverUrl;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      console.log(`💾 Actualizando base de datos en Supabase con los recursos subidos...`, updatePayload);
       const { error: updateError } = await supabase
         .from('published_news')
-        .update({ video_url: r2Url })
+        .update(updatePayload)
         .eq('id', newsId);
 
       if (updateError) {
-        console.error("❌ Error al actualizar video_url en la base de datos:", updateError.message);
+        console.error("❌ Error al actualizar la base de datos:", updateError.message);
       } else {
-        console.log("✅ Base de datos actualizada con éxito.");
+        console.log("✅ Registro en base de datos actualizado con éxito.");
       }
     }
 
@@ -328,11 +369,14 @@ async function run() {
     if (fs.existsSync(propsFilePath)) {
       try { fs.unlinkSync(propsFilePath); } catch {}
     }
+    if (fs.existsSync(coverPropsFilePath)) {
+      try { fs.unlinkSync(coverPropsFilePath); } catch {}
+    }
     process.exit(1);
   }
 }
 
-async function uploadToR2(videoPath, newsId) {
+async function uploadToR2(filePath, key) {
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -344,7 +388,7 @@ async function uploadToR2(videoPath, newsId) {
     return null;
   }
 
-  console.log(`📤 Subiendo video a Cloudflare R2 (${bucketName})...`);
+  console.log(`📤 Subiendo ${key} a Cloudflare R2 (${bucketName})...`);
   const s3Client = new S3Client({
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -354,22 +398,22 @@ async function uploadToR2(videoPath, newsId) {
     }
   });
 
-  const fileStream = fs.createReadStream(videoPath);
-  const key = `news_${newsId}.mp4`;
+  const fileStream = fs.createReadStream(filePath);
 
   try {
+    const contentType = key.endsWith('.jpg') || key.endsWith('.jpeg') ? 'image/jpeg' : 'video/mp4';
     await s3Client.send(new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
       Body: fileStream,
-      ContentType: 'video/mp4'
+      ContentType: contentType
     }));
 
     const fileUrl = `${publicUrl.replace(/\/$/, '')}/${key}`;
-    console.log(`✅ Video subido con éxito a R2: ${fileUrl}`);
+    console.log(`✅ Recurso subido con éxito a R2: ${fileUrl}`);
     return fileUrl;
   } catch (err) {
-    console.error("❌ Error al subir video a Cloudflare R2:", err.message);
+    console.error(`❌ Error al subir ${key} a Cloudflare R2:`, err.message);
     return null;
   }
 }

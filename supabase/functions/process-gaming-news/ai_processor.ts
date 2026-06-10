@@ -60,7 +60,8 @@ INSTRUCCIONES PARA ARTÍCULO WEB:
 
 INSTRUCCIONES PARA TIKTOK (GUION):
 - Escribe un guion dinámico para ser leído en un video vertical de entre 60 y 120 segundos.
-- Empieza siempre con un "Gancho" agresivo en los primeros 3 segundos.
+- Al principio del todo (antes de comenzar el guion), incluye una sugerencia de título corto (máximo 4-5 palabras) y con alto gancho/impacto para la portada/carátula, encerrado entre corchetes, por ejemplo: [TÍTULO CARÁTULA: ¡TU BUILD ESTÁ ROTA!].
+- Empieza el guion propiamente dicho con un "Gancho" agresivo en los primeros 3 segundos.
 - Desarrolla la noticia con lenguaje natural, entusiasta y veloz.
 - Termina con un "Call to Action" (Ej: "Dime en los comentarios qué opinas" o "Sígueme para más noticias").
 - Incluye indicaciones visuales entre corchetes (Ej: [Mostrar imagen del juego]).

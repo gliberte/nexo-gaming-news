@@ -4,40 +4,44 @@ import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, useVideoConfig, 
 // Estilos de texto para hooks y subtítulos
 const textStyles = {
   glitch: {
-    fontFamily: 'Orbitron, sans-serif',
-    fontSize: '68px',
+    fontFamily: "'Luckiest Guy', sans-serif",
+    fontSize: '78px',
     color: '#ffffff',
-    textShadow: '3px 3px 0px #00ffff, -3px -3px 0px #ff0055',
+    textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 6px 6px 0px #00ffff, -6px -6px 0px #ff0055',
     textTransform: 'uppercase' as const,
     fontWeight: '900',
     textAlign: 'center' as const,
     letterSpacing: '2px',
+    lineHeight: '1.1',
   },
   neon_cyan: {
-    fontFamily: 'Orbitron, sans-serif',
-    fontSize: '60px',
+    fontFamily: "'Luckiest Guy', sans-serif",
+    fontSize: '75px',
     color: '#00f0ff',
-    textShadow: '0 0 10px #00f0ff, 0 0 20px #00f0ff, 0 0 40px rgba(0, 240, 255, 0.5)',
+    textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 0 15px rgba(0, 240, 255, 0.8)',
     fontWeight: '800',
     textAlign: 'center' as const,
     letterSpacing: '1px',
+    lineHeight: '1.1',
   },
   warning_red: {
-    fontFamily: 'Orbitron, sans-serif',
-    fontSize: '65px',
+    fontFamily: "'Luckiest Guy', sans-serif",
+    fontSize: '75px',
     color: '#ff0033',
-    textShadow: '0 0 10px #ff0033, 0 0 20px #ff0033, 0 0 30px rgba(255, 0, 51, 0.6)',
+    textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 0 15px rgba(255, 0, 51, 0.8)',
     fontWeight: 'bold',
     textAlign: 'center' as const,
     letterSpacing: '2px',
+    lineHeight: '1.1',
   },
   bright_yellow: {
-    fontFamily: 'Sora, sans-serif',
-    fontSize: '60px',
+    fontFamily: "'Luckiest Guy', sans-serif",
+    fontSize: '75px',
     color: '#fbff00',
-    textShadow: '0 0 8px rgba(251, 255, 0, 0.4), 2px 2px 4px rgba(0, 0, 0, 0.8)',
+    textShadow: '-4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 0 0 15px rgba(251, 255, 0, 0.8)',
     fontWeight: '800' as const,
     textAlign: 'center' as const,
+    lineHeight: '1.1',
   }
 };
 
@@ -521,6 +525,105 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
 
       {/* Barra de progreso */}
       <ProgressBar />
+    </AbsoluteFill>
+  );
+};
+
+// Componente para la carátula o portada del video (1080x1920)
+export const NexoGamingCover: React.FC<{ title: string; imageUrl?: string }> = ({ title, imageUrl }) => {
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#0e0e0f', fontFamily: "'Luckiest Guy', sans-serif" }}>
+      {/* Imagen de fondo con tinte Cyberpunk */}
+      {imageUrl ? (
+        <img 
+          src={imageUrl} 
+          style={{ 
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: 'brightness(0.5) contrast(1.15) saturate(1.2)',
+          }} 
+        />
+      ) : (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle, #1f1a24 0%, #0e0e0f 100%)',
+        }} />
+      )}
+
+      {/* Capas superpuestas Cyberpunk de color */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(180deg, rgba(0, 240, 255, 0.05) 0%, rgba(255, 0, 85, 0.05) 100%)',
+      }} />
+
+      {/* Marca de agua / Logo en la parte superior */}
+      <div style={{
+        position: 'absolute',
+        top: '60px',
+        left: '0',
+        right: '0',
+        display: 'flex',
+        justifyContent: 'center',
+      }}>
+        <div style={{
+          background: 'rgba(14, 14, 15, 0.9)',
+          border: '2px solid #00f0ff',
+          padding: '12px 28px',
+          borderRadius: '35px',
+          boxShadow: '0 0 25px rgba(0, 240, 255, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+        }}>
+          <span style={{
+            fontFamily: 'Orbitron, sans-serif',
+            fontSize: '18px',
+            color: '#ffffff',
+            fontWeight: 900,
+            letterSpacing: '4px',
+            textShadow: '0 0 8px rgba(0, 240, 255, 0.6)',
+          }}>NEXO GAMING</span>
+        </div>
+      </div>
+
+      {/* Título gigante y llamativo en el centro */}
+      <div style={{
+        position: 'absolute',
+        inset: '0 60px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        zIndex: 5,
+      }}>
+        <h1 style={{
+          fontSize: '95px',
+          color: '#fbff00', // Amarillo neón
+          textTransform: 'uppercase',
+          lineHeight: '1.05',
+          letterSpacing: '1px',
+          textShadow: '-6px -6px 0 #000, 6px -6px 0 #000, -6px 6px 0 #000, 6px 6px 0 #000, 0 15px 30px rgba(0, 0, 0, 0.9), 0 0 25px rgba(251, 255, 0, 0.5)',
+          margin: 0,
+        }}>
+          {title}
+        </h1>
+      </div>
+
+      {/* Marco HUD decorativo */}
+      <div style={{
+        position: 'absolute',
+        inset: '30px',
+        border: '2px solid rgba(0, 240, 255, 0.25)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{ position: 'absolute', top: '25px', left: '25px', width: '30px', height: '30px', borderTop: '4px solid #00f0ff', borderLeft: '4px solid #00f0ff' }} />
+      <div style={{ position: 'absolute', top: '25px', right: '25px', width: '30px', height: '30px', borderTop: '4px solid #ff0055', borderRight: '4px solid #ff0055' }} />
+      <div style={{ position: 'absolute', bottom: '25px', left: '25px', width: '30px', height: '30px', borderBottom: '4px solid #ff0055', borderLeft: '4px solid #ff0055' }} />
+      <div style={{ position: 'absolute', bottom: '25px', right: '25px', width: '30px', height: '30px', borderBottom: '4px solid #00f0ff', borderRight: '4px solid #00f0ff' }} />
     </AbsoluteFill>
   );
 };

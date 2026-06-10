@@ -226,6 +226,7 @@ INSTRUCCIONES PARA INSTAGRAM:
 - Incluye hashtags relevantes al final.
 
 INSTRUCCIONES PARA TIKTOK (Sugerencias):
+- Sugiere un título corto, de alto impacto y extremadamente llamativo (máximo 4-5 palabras) para la carátula (portada) del video de TikTok (Ej: "¡TU BUILD ESTÁ ROTA!").
 - Sugiere de 1 a 3 comentarios cortos e interesantes para fijar en el video (comentarios gancho).
 - Sugiere de 3 a 5 tags (hashtags) recomendados para la publicación del video en TikTok.
 
@@ -233,6 +234,7 @@ Devuelve tu respuesta EXACTAMENTE en este formato JSON, sin comentarios adiciona
 {
   "tweet": "Aquí va el tweet...",
   "instagram_caption": "Aquí va el copy de instagram...",
+  "tiktok_cover_title": "Título sugerido...",
   "tiktok_comments": ["Comentario sugerido 1", "Comentario sugerido 2"],
   "tiktok_tags": ["#tag1", "#tag2", "#tag3"]
 }
@@ -353,13 +355,14 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
   let instagram = (newsItem.instagram_caption || "").trim();
   const videoUrl = newsItem.video_url;
   
+  let tiktokCoverTitle = "";
   let tiktokComments: string[] = [];
   let tiktokTags: string[] = [];
-
+ 
   const needTweet = !tweet;
   const needInstagram = !instagram;
   const needsGeneration = needTweet || needInstagram;
-
+ 
   if (needsGeneration) {
     console.log("Detectados borradores vacíos de redes sociales. Generando contenidos con IA...");
     try {
@@ -368,7 +371,7 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
         newsItem.web_article || "",
         newsItem.tiktok_script || ""
       );
-
+ 
       const updateData: any = {};
       if (needTweet) {
         tweet = generated.tweet || "";
@@ -378,17 +381,18 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
         instagram = generated.instagram_caption || "";
         updateData.instagram_caption = instagram;
       }
-
+ 
+      tiktokCoverTitle = generated.tiktok_cover_title || "";
       tiktokComments = generated.tiktok_comments || [];
       tiktokTags = generated.tiktok_tags || [];
-
+ 
       if (Object.keys(updateData).length > 0) {
         console.log("Almacenando contenidos generados en la base de datos:", updateData);
         const { error: updateError } = await supabase
           .from("published_news")
           .update(updateData)
           .eq("id", id);
-
+ 
         if (updateError) {
           console.error("Error al guardar en base de datos:", updateError.message);
         } else {
@@ -407,6 +411,7 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
         newsItem.web_article || "",
         newsItem.tiktok_script || ""
       );
+      tiktokCoverTitle = generated.tiktok_cover_title || "";
       tiktokComments = generated.tiktok_comments || [];
       tiktokTags = generated.tiktok_tags || [];
     } catch (genErr: any) {
@@ -440,8 +445,11 @@ ${safeTweet}
 ${safeInstagram}
   `.trim();
 
-  if (tiktokComments.length > 0 || tiktokTags.length > 0) {
+  if (tiktokCoverTitle || tiktokComments.length > 0 || tiktokTags.length > 0) {
     caption += `\n\n🎵 <b>Sugerencias para TikTok:</b>`;
+    if (tiktokCoverTitle) {
+      caption += `\n🖼️ <b>Título para carátula (gancho):</b> "${escapeHtml(tiktokCoverTitle)}"`;
+    }
     if (tiktokComments.length > 0) {
       caption += `\n💬 <b>Comentarios gancho:</b>`;
       tiktokComments.forEach(c => {

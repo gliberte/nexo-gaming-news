@@ -1,5 +1,5 @@
 import { Composition, registerRoot } from 'remotion';
-import { NexoGamingVideo } from './Composition';
+import { NexoGamingVideo, NexoGamingCover } from './Composition';
 
 export const Root = () => {
   return (
@@ -20,6 +20,18 @@ export const Root = () => {
             },
             scenes: []
           }
+        }}
+      />
+      <Composition
+        id="NexoGamingCover"
+        component={NexoGamingCover}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          title: "¡TU BUILD ESTÁ ROTA!",
+          imageUrl: ""
         }}
       />
     </>
