@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getAdminDataAction } from "./data-actions";
-import { updateNewsStatusAction } from "./actions";
+import { updateNewsStatusAction, processManualNewsAction } from "./actions";
 
 // Simulación determinista de autores basada en el ID del artículo
 const AUTHORS = [
@@ -47,6 +47,13 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Manual processing states
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualUrl, setManualUrl] = useState("");
+  const [isProcessingManual, setIsProcessingManual] = useState(false);
+  const [manualSuccessMessage, setManualSuccessMessage] = useState<string | null>(null);
+  const [manualErrorMessage, setManualErrorMessage] = useState<string | null>(null);
+
   useEffect(() => {
     const savedPassword = sessionStorage.getItem("admin_password");
     if (savedPassword) {
@@ -86,6 +93,34 @@ export default function AdminDashboard() {
       sessionStorage.removeItem("admin_password");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleManualProcess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pass = sessionStorage.getItem("admin_password");
+    if (!pass) {
+      setManualErrorMessage("Error de sesión. Por favor, vuelve a ingresar la contraseña.");
+      return;
+    }
+    
+    setIsProcessingManual(true);
+    setManualSuccessMessage(null);
+    setManualErrorMessage(null);
+    
+    try {
+      const result = await processManualNewsAction(pass, manualTitle, manualUrl);
+      if (result && result.success) {
+        setManualSuccessMessage("¡Noticia procesada y guardada con éxito! Revisa la notificación en Telegram.");
+        setManualTitle("");
+        setManualUrl("");
+        loadData(pass);
+      }
+    } catch (err: any) {
+      setManualErrorMessage("Error al procesar la noticia: " + (err.message || "Fallo en la comunicación."));
+      console.error(err);
+    } finally {
+      setIsProcessingManual(false);
     }
   };
 
@@ -226,6 +261,60 @@ export default function AdminDashboard() {
             <p className="text-[10px] font-label-caps text-on-surface-variant mt-2 text-right">99.9% Uptime</p>
           </div>
         </div>
+      </section>
+
+      {/* Import Manual News Form */}
+      <section className="mb-10 glass-panel p-6 rounded-xl border border-outline-variant bg-surface-container-lowest/30">
+        <h4 className="font-headline-md text-[18px] font-bold text-primary flex items-center gap-2 mb-4">
+          <span className="material-symbols-outlined text-[20px]">dynamic_feed</span>
+          Procesar Noticia Manualmente (IA)
+        </h4>
+        <form onSubmit={handleManualProcess} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          <div className="md:col-span-4 space-y-1.5">
+            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">TÍTULO DE LA NOTICIA</label>
+            <input 
+              type="text" 
+              value={manualTitle}
+              onChange={(e) => setManualTitle(e.target.value)}
+              placeholder="Ej: Nintendo Switch 2 revelada..."
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors"
+              required
+            />
+          </div>
+          <div className="md:col-span-5 space-y-1.5">
+            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">URL DE LA NOTICIA / FUENTE</label>
+            <input 
+              type="url" 
+              value={manualUrl}
+              onChange={(e) => setManualUrl(e.target.value)}
+              placeholder="Ej: https://kotaku.com/..."
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors"
+              required
+            />
+          </div>
+          <div className="md:col-span-3">
+            <button 
+              type="submit"
+              disabled={isProcessingManual}
+              className="w-full py-2 bg-secondary hover:bg-secondary/80 text-on-secondary font-bold text-label-caps font-label-caps disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer h-[38px] rounded border border-[#ecb2ff]/20 shadow-[0_0_8px_rgba(236,178,255,0.15)]"
+            >
+              <span className="material-symbols-outlined text-[18px]">bolt</span>
+              {isProcessingManual ? 'Procesando...' : 'Procesar con IA'}
+            </button>
+          </div>
+        </form>
+        {manualSuccessMessage && (
+          <p className="mt-3 text-xs text-tertiary-fixed font-bold flex items-center gap-1.5 animate-pulse">
+            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+            {manualSuccessMessage}
+          </p>
+        )}
+        {manualErrorMessage && (
+          <p className="mt-3 text-xs text-error font-bold flex items-center gap-1.5 animate-pulse">
+            <span className="material-symbols-outlined text-[14px]">error</span>
+            {manualErrorMessage}
+          </p>
+        )}
       </section>
 
       {/* Article List Table Section */}

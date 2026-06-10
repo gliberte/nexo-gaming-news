@@ -192,13 +192,7 @@ export default async function NoticiaPage({ params }: Props) {
             position: 'sticky',
             top: '32px',
           }}>
-            <div className="flex items-center justify-between border-b border-outline-variant/50 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary animate-pulse text-sm" style={{ display: 'inline-block', verticalAlign: 'middle' }}>play_circle</span>
-                <span className="font-label-caps text-[11px] text-primary tracking-widest font-bold">REEL INFORME</span>
-              </div>
-              <span className="text-[10px] text-on-surface-variant font-mono">9:16 FORMAT</span>
-            </div>
+
             
             <div className="relative rounded-lg overflow-hidden border border-outline-variant/60 shadow-2xl" style={{ aspectRatio: '9/16' }}>
               <video 

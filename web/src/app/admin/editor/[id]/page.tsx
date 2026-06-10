@@ -4,7 +4,7 @@ import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { submitNewsAction, generateProductionPlanAction, triggerVideoRenderAction } from "../../actions";
+import { submitNewsAction, generateProductionPlanAction, triggerVideoRenderAction, sendCuratedContentToTelegramAction } from "../../actions";
 import { getAdminNewsItemAction } from "../../data-actions";
 
 const textStylesMap: any = {
@@ -46,6 +46,14 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [videoRenderSuccess, setVideoRenderSuccess] = useState<boolean | null>(null);
   const [videoPath, setVideoPath] = useState<string | null>(null);
+
+  // Curated Content state
+  const [tweet, setTweet] = useState("");
+  const [instagramCaption, setInstagramCaption] = useState("");
+
+  // Telegram state
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
+  const [telegramSendSuccess, setTelegramSendSuccess] = useState<boolean | null>(null);
  
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -91,6 +99,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         setStatus(data.status || "draft");
         setTiktokScript(data.tiktok_script || "");
         setProductionPlan(data.production_plan || null);
+        setTweet(data.tweet || "");
+        setInstagramCaption(data.instagram_caption || "");
         if (data.tags) {
           try {
             setTags(JSON.parse(data.tags));
@@ -145,6 +155,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     formData.append("tags", JSON.stringify(tags));
     formData.append("tiktokScript", tiktokScript);
     formData.append("productionPlan", productionPlan ? JSON.stringify(productionPlan) : "");
+    formData.append("tweet", tweet);
+    formData.append("instagramCaption", instagramCaption);
 
     try {
       await submitNewsAction(formData);
@@ -195,6 +207,31 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
       console.error(err);
     } finally {
       setIsRenderingVideo(false);
+    }
+  };
+
+  const handleSendToTelegram = async () => {
+    if (isNew) {
+      setError("Guarda la noticia primero antes de enviar a Telegram.");
+      return;
+    }
+    setIsSendingTelegram(true);
+    setTelegramSendSuccess(null);
+    setError(null);
+    try {
+      const result = await sendCuratedContentToTelegramAction(password, unwrappedParams.id);
+      if (result && result.success) {
+        setTelegramSendSuccess(true);
+        if (result.tweet) setTweet(result.tweet);
+        if (result.instagramCaption) setInstagramCaption(result.instagramCaption);
+        alert("¡Contenidos curados enviados a Telegram con éxito!");
+      }
+    } catch (err: any) {
+      setError("Error al enviar a Telegram: " + (err.message || "Fallo en la comunicación."));
+      setTelegramSendSuccess(false);
+      console.error(err);
+    } finally {
+      setIsSendingTelegram(false);
     }
   };
 
@@ -425,6 +462,36 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   onChange={(e) => setTiktokScript(e.target.value)}
                   className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-4 font-body-md text-on-surface placeholder:text-on-surface-variant/20 outline-none resize-y min-h-[150px] custom-scrollbar" 
                   placeholder="Insert script here with [Visual cues]..."
+                />
+              </div>
+
+              {/* X / Twitter Copy Area */}
+              <div className="space-y-3">
+                <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[14px]">share</span>
+                  X / TWITTER COPY (CURADO)
+                </label>
+                <textarea 
+                  name="tweet"
+                  value={tweet}
+                  onChange={(e) => setTweet(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-4 font-body-md text-on-surface placeholder:text-on-surface-variant/20 outline-none resize-y min-h-[100px] custom-scrollbar" 
+                  placeholder="Escribe el copy curado para X aquí..."
+                />
+              </div>
+
+              {/* Instagram Copy Area */}
+              <div className="space-y-3">
+                <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+                  INSTAGRAM COPY (CURADO)
+                </label>
+                <textarea 
+                  name="instagramCaption"
+                  value={instagramCaption}
+                  onChange={(e) => setInstagramCaption(e.target.value)}
+                  className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-4 font-body-md text-on-surface placeholder:text-on-surface-variant/20 outline-none resize-y min-h-[120px] custom-scrollbar" 
+                  placeholder="Escribe el copy curado para Instagram aquí..."
                 />
               </div>
 
@@ -687,6 +754,28 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 </div>
               )}
               
+              {!isNew && (
+                <button 
+                  type="button"
+                  onClick={handleSendToTelegram}
+                  disabled={isSendingTelegram}
+                  className="w-full py-4 px-6 border font-bold clipped-corner transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ borderColor: '#00f0ff', color: '#00f0ff', background: 'rgba(0, 240, 255, 0.02)' }}
+                >
+                  {isSendingTelegram ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin">sync</span>
+                      ENVIANDO A TELEGRAM...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined">send</span>
+                      ENVIAR A TELEGRAM
+                    </>
+                  )}
+                </button>
+              )}
+
               <button 
                 type="submit"
                 disabled={isSubmitting}
