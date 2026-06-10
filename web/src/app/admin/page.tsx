@@ -407,7 +407,7 @@ export default function AdminDashboard() {
                           </Link>
                           <div className="flex gap-2 mt-1">
                             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary uppercase">
-                              {item.platform === "manual" ? "GENERAL" : (item.platform || "GENERAL")}
+                              {item.platform?.toLowerCase() === "manual" ? "GENERAL" : (item.platform || "GENERAL")}
                             </span>
                             {item.status === "published" && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-secondary/10 border border-secondary/20 text-secondary uppercase">

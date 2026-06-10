@@ -71,7 +71,7 @@ export default async function Home() {
                 
                 <div className="news-content">
                   <div className="label-caps platform-tag">
-                    {item.platform === "manual" ? (
+                    {item.platform?.toLowerCase() === "manual" ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <img src="/logo.jpg" alt="NGM Logo" style={{ width: '14px', height: '14px', borderRadius: '50%', border: '1px solid var(--primary-container)' }} />
                         <span>NGM</span>

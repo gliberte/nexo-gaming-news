@@ -145,7 +145,7 @@ export default async function NoticiaPage({ params }: Props) {
           
           <div className="article-body">
             <div className="label-caps platform-tag">
-              {item.platform === "manual" ? (
+              {item.platform?.toLowerCase() === "manual" ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   <img src="/logo.jpg" alt="NGM Logo" style={{ width: '14px', height: '14px', borderRadius: '50%', border: '1px solid var(--primary-container)' }} />
                   <span>NGM</span>
@@ -185,7 +185,7 @@ export default async function NoticiaPage({ params }: Props) {
                   gap: '8px'
                 }}
               >
-                {item.platform === "manual" ? (
+                {item.platform?.toLowerCase() === "manual" ? (
                   <span className="label-caps">LEER NOTICIA ORIGINAL EN NGM</span>
                 ) : (
                   <span className="label-caps">LEER FUENTE ORIGINAL EN {(item.platform || "IGN").toUpperCase()}</span>
