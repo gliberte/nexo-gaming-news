@@ -442,6 +442,7 @@ ${instagram}
   }
 
   try {
+    let sentAsVideo = false;
     if (videoUrl) {
       console.log(`Enviando video a Telegram (${videoUrl})...`);
       const telegramVideoUrl = `https://api.telegram.org/bot${botToken}/sendVideo`;
@@ -454,53 +455,70 @@ ${instagram}
         followUpText = caption;
       }
 
-      const response = await fetch(telegramVideoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          video: videoUrl,
-          caption: videoCaption,
-          parse_mode: 'Markdown'
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Telegram sendVideo falló: ${errorText}`);
-      }
-
-      if (followUpText) {
-        const videoJson = await response.json();
-        const videoMessageId = videoJson.result?.message_id;
-        
-        console.log(`Enviando mensaje complementario debido a límite de caracteres (ID respuesta: ${videoMessageId})...`);
-        const telegramMessageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-        const followUpResponse = await fetch(telegramMessageUrl, {
+      try {
+        const response = await fetch(telegramVideoUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            text: followUpText,
-            parse_mode: 'Markdown',
-            reply_to_message_id: videoMessageId
+            video: videoUrl,
+            caption: videoCaption,
+            parse_mode: 'Markdown'
           })
         });
 
-        if (!followUpResponse.ok) {
-          const errorText = await followUpResponse.text();
-          console.error("Fallo el envío del texto complementario a Telegram:", errorText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText);
         }
+
+        sentAsVideo = true;
+
+        if (followUpText) {
+          const videoJson = await response.json();
+          const videoMessageId = videoJson.result?.message_id;
+          
+          console.log(`Enviando mensaje complementario debido a límite de caracteres (ID respuesta: ${videoMessageId})...`);
+          const telegramMessageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+          const followUpResponse = await fetch(telegramMessageUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: followUpText,
+              parse_mode: 'Markdown',
+              reply_to_message_id: videoMessageId
+            })
+          });
+
+          if (!followUpResponse.ok) {
+            const errorText = await followUpResponse.text();
+            console.error("Fallo el envío del texto complementario a Telegram:", errorText);
+          }
+        }
+      } catch (videoErr: any) {
+        console.error("Fallo el envío de video a Telegram via URL (R2). Usando fallback de texto...", videoErr.message);
+        sentAsVideo = false;
       }
-    } else {
-      console.log(`Enviando mensaje de texto normal a Telegram (sin video_url)...`);
+    }
+
+    if (!sentAsVideo) {
+      console.log(`Enviando mensaje de texto normal a Telegram (con o sin fallback de video)...`);
       const telegramMessageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      
+      let textContent = caption;
+      if (videoUrl) {
+        textContent += `\n\n📥 *Descargar Video (R2 Fallback):* \n🔗 ${videoUrl}`;
+      } else {
+        textContent += "\n\n🎥 *Video TikTok (Remotion):* No renderizado en R2 aún.";
+      }
+
       const response = await fetch(telegramMessageUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: caption + "\n\n🎥 *Video TikTok (Remotion):* No renderizado en R2 aún.",
+          text: textContent,
           parse_mode: 'Markdown'
         })
       });

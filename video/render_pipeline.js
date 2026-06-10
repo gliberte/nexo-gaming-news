@@ -290,12 +290,20 @@ async function run() {
     console.log("ℹ️ Detectado uso de Voice Mock (ElevenLabs deshabilitado o sin cuota). Se configurará música y video desmutado.");
   }
 
+  const propsFilePath = path.join(assetsDir, `props_${newsId}.json`);
   try {
     console.log(`Compilando video final a: ${outputVideoPath}`);
-    // Pasar los props del plan y la duración total a través de CLI
-    execSync(`npx remotion render Root.tsx NexoGamingVideo "${outputVideoPath}" --props='${JSON.stringify({ plan })}' --duration=${totalFrames} --overwrite`, { stdio: 'inherit' });
+    // Escribir los props en un archivo JSON temporal para evitar problemas de escape de caracteres en el shell
+    fs.writeFileSync(propsFilePath, JSON.stringify({ plan }));
+    
+    execSync(`npx remotion render Root.tsx NexoGamingVideo "${outputVideoPath}" --props="${propsFilePath}" --duration=${totalFrames} --overwrite`, { stdio: 'inherit' });
     console.log(`\n🎉 --- RENDERIZADO COMPLETADO CON ÉXITO --- 🎉`);
     console.log(`Video disponible en: /${outputVideoName}`);
+
+    // Limpiar archivo temporal de props
+    if (fs.existsSync(propsFilePath)) {
+      try { fs.unlinkSync(propsFilePath); } catch {}
+    }
 
     // 5. Subir a Cloudflare R2 y guardar la URL en la base de datos
     const r2Url = await uploadToR2(outputVideoPath, newsId);
@@ -317,6 +325,9 @@ async function run() {
     await uploadToTelegram(outputVideoPath, newsItem.title, r2Url);
   } catch (err) {
     console.error("❌ Error durante el renderizado de Remotion o subida a R2:", err.message);
+    if (fs.existsSync(propsFilePath)) {
+      try { fs.unlinkSync(propsFilePath); } catch {}
+    }
     process.exit(1);
   }
 }
