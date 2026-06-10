@@ -70,7 +70,16 @@ export default async function Home() {
                 ) : null}
                 
                 <div className="news-content">
-                  <div className="label-caps platform-tag">{item.platform}</div>
+                  <div className="label-caps platform-tag">
+                    {item.platform === "manual" ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <img src="/logo.jpg" alt="NGM Logo" style={{ width: '14px', height: '14px', borderRadius: '50%', border: '1px solid var(--primary-container)' }} />
+                        <span>NGM</span>
+                      </span>
+                    ) : (
+                      item.platform
+                    )}
+                  </div>
                   <Link href={`/noticia/${item.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <h2 style={{ cursor: 'pointer' }}>{item.title}</h2>
                   </Link>

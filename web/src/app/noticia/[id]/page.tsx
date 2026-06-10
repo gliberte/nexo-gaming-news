@@ -144,7 +144,16 @@ export default async function NoticiaPage({ params }: Props) {
           ) : null}
           
           <div className="article-body">
-            <div className="label-caps platform-tag">{item.platform}</div>
+            <div className="label-caps platform-tag">
+              {item.platform === "manual" ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <img src="/logo.jpg" alt="NGM Logo" style={{ width: '14px', height: '14px', borderRadius: '50%', border: '1px solid var(--primary-container)' }} />
+                  <span>NGM</span>
+                </span>
+              ) : (
+                item.platform
+              )}
+            </div>
             <h1 className="article-title">{item.title}</h1>
             
             {item.web_article && (
@@ -176,7 +185,11 @@ export default async function NoticiaPage({ params }: Props) {
                   gap: '8px'
                 }}
               >
-                <span className="label-caps">LEER FUENTE ORIGINAL EN {(item.platform || "IGN").toUpperCase()}</span>
+                {item.platform === "manual" ? (
+                  <span className="label-caps">LEER NOTICIA ORIGINAL EN NGM</span>
+                ) : (
+                  <span className="label-caps">LEER FUENTE ORIGINAL EN {(item.platform || "IGN").toUpperCase()}</span>
+                )}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </a>
             </div>

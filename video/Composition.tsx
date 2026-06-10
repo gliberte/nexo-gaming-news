@@ -314,13 +314,46 @@ const SubtitleChunk: React.FC<{ text: string; relativeFrame: number; framesPerCh
   );
 };
 
+// Función para limpiar/resumir el texto cuando no hay voz (evitando frases redundantes)
+const cleanTextForVoiceMock = (text: string): string => {
+  const patternsToFilter = [
+    /dime en los comentarios/gi,
+    /déjame en los comentarios/gi,
+    /deja tu opinión/gi,
+    /comenta abajo/gi,
+    /síguenos/gi,
+    /sígueme/gi,
+    /sigue a nexo/gi,
+    /no olvides seguirnos/gi,
+    /no te pierdas nada/gi,
+    /nos vemos en el próximo video/gi,
+    /hasta el próximo video/gi,
+    /suscribirte/gi,
+    /suscríbete/gi,
+    /dale like/gi,
+    /enlace en la bio/gi,
+    /link en la bio/gi
+  ];
+  
+  // Dividir por oraciones usando signos de puntuación (. ! ?)
+  const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+  const filteredSentences = sentences.filter(sentence => {
+    return !patternsToFilter.some(pattern => pattern.test(sentence));
+  });
+  
+  return filteredSentences.join(" ").trim();
+};
+
 // Componente contenedor para los subtítulos dinámicos de narración
-const DynamicNarrativeSubtitles: React.FC<{ text: string }> = ({ text }) => {
+const DynamicNarrativeSubtitles: React.FC<{ text: string; isVoiceMock?: boolean }> = ({ text, isVoiceMock }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
-  const chunks = splitTextIntoReadableSentences(text);
+  const processedText = isVoiceMock ? cleanTextForVoiceMock(text) : text;
+  const chunks = splitTextIntoReadableSentences(processedText);
   const numChunks = chunks.length;
+  if (numChunks === 0) return null;
+
   const framesPerChunk = durationInFrames / numChunks;
 
   const activeChunkIndex = Math.min(
@@ -335,7 +368,8 @@ const DynamicNarrativeSubtitles: React.FC<{ text: string }> = ({ text }) => {
   return (
     <div style={{
       position: 'absolute',
-      bottom: '180px',
+      top: isVoiceMock ? '220px' : undefined,
+      bottom: isVoiceMock ? undefined : '180px',
       left: '80px', // Margen izquierdo consistente
       right: '80px',
       display: 'flex',
@@ -404,31 +438,23 @@ const CyberHUD = () => {
         <div style={{
           background: 'rgba(14, 14, 15, 0.85)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(0, 240, 255, 0.35)',
-          padding: '8px 20px',
-          borderRadius: '30px',
-          boxShadow: '0 0 20px rgba(0, 240, 255, 0.2)',
+          border: '2px solid rgba(0, 240, 255, 0.35)',
+          padding: '6px',
+          borderRadius: '50%',
+          boxShadow: '0 0 25px rgba(0, 240, 255, 0.25)',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          justifyContent: 'center',
         }}>
           <img 
             src={require('./assets/logo.jpg')} 
             style={{ 
-              width: '32px', 
-              height: '32px', 
+              width: '60px', 
+              height: '60px', 
               borderRadius: '50%',
               border: '1px solid #00f0ff',
             }} 
           />
-          <span style={{
-            fontFamily: 'Orbitron, sans-serif',
-            fontSize: '15px',
-            color: '#ffffff',
-            fontWeight: 900,
-            letterSpacing: '3px',
-            textShadow: '0 0 5px rgba(0, 240, 255, 0.5)',
-          }}>NEXO GAMING</span>
         </div>
       </div>
 
@@ -514,7 +540,7 @@ export const NexoGamingVideo: React.FC<{ plan: any }> = ({ plan }) => {
 
             {/* Subtítulo de Narración Completa (Dinámico y Animado) */}
             {scene.narrative_text && (
-              <DynamicNarrativeSubtitles text={scene.narrative_text} />
+              <DynamicNarrativeSubtitles text={scene.narrative_text} isVoiceMock={plan.isVoiceMock} />
             )}
           </Sequence>
         );
