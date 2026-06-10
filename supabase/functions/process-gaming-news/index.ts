@@ -79,10 +79,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ACCIÓN AUXILIAR: Obtener feeds RSS sin procesar
+    if (body && body.action === "fetch_feeds") {
+      const maxItems = body.max_items || 5;
+      console.log(`📡 Obtención de feeds RSS solicitada (max_items=${maxItems})...`);
+      const articles = await fetchGamingNews(maxItems);
+      
+      const articlesWithStatus = [];
+      for (const article of articles) {
+        const isDuplicated = await isNewsAlreadyProcessed(article.link);
+        articlesWithStatus.push({
+          ...article,
+          isProcessed: isDuplicated
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        articles: articlesWithStatus
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     // FLUJO 1: Procesamiento Manual de Noticia
     if (body && body.url) {
       const manualTitle = body.title || "Noticia Ingestada Manualmente";
       const manualUrl = body.url;
+      const manualPlatform = body.platform || "Manual";
       const isForce = body.force === true;
 
       console.log(`📥 Ingesta manual solicitada: "${manualTitle}" (${manualUrl}) [force=${isForce}]`);
@@ -111,7 +135,7 @@ Deno.serve(async (req) => {
         link: manualUrl,
         content: scrapedContent || `Noticia manual sobre ${manualTitle}.`,
         pubDate: new Date().toISOString(),
-        platform: "Manual",
+        platform: manualPlatform,
         imageUrl: scrapedImageUrl
       };
 
@@ -200,111 +224,11 @@ ${generatedPosts.instagram_caption}
       });
     }
 
-    // FLUJO 2: Ingesta Automática de RSS (Por defecto o GET)
-    console.log("📡 Iniciando procesamiento automático por RSS...");
-    const articles = await fetchGamingNews(2); // Máximo 2 noticias por feed por ejecución
-    const processedArticles = [];
-
-    for (const article of articles) {
-      // Comprobar si ya fue publicada en la Base de Datos
-      const isDuplicated = await isNewsAlreadyProcessed(article.link);
-      
-      if (isDuplicated) {
-        console.log(`⏭️ Noticia ya procesada anteriormente: ${article.title}`);
-        continue;
-      }
-
-      // Si ya hemos procesado 3 noticias nuevas en esta ejecución, paramos para no saturar.
-      if (processedArticles.length >= 3) {
-        console.log("🛑 Límite de 3 noticias nuevas alcanzado en esta ejecución. Se detiene el proceso.");
-        break;
-      }
-
-      console.log(`🤖 Procesando nueva noticia con IA: ${article.title}`);
-      
-      // Generar contenido con Gemini
-      const generatedPosts = await generateSocialPosts(article);
-      
-      if (!generatedPosts) {
-        console.error(`❌ Falló la generación de IA para: ${article.title}`);
-        continue;
-      }
-
-      const xSuccess = false;
-      const igSuccess = false;
-
-      // Buscar trailer en YouTube usando la función nativa optimizada
-      let youtubeUrl = "No se encontró trailer.";
-      if (generatedPosts.youtube_search_query) {
-        console.log(`🔍 Buscando trailer oficial en YouTube para: "${generatedPosts.youtube_search_query}"...`);
-        youtubeUrl = await searchYouTubeTrailer(generatedPosts.youtube_search_query);
-      }
-
-      // Enviar a Telegram para revisión manual
-      const telegramMessage = `
-🎮 *Nueva Noticia Gaming Procesada* 🎮
-
-*Título:* ${generatedPosts.spanish_title}
-*Fuente:* ${article.link}
-*Trailer:* ${youtubeUrl}
-
-🎬 *Guion para TikTok:*
-${generatedPosts.tiktok_script}
-
-*Borrador para X (Twitter):*
-${generatedPosts.tweet}
-
-*Borrador para Instagram:*
-${generatedPosts.instagram_caption}
-      `.trim();
-
-      await publishToTelegram(telegramMessage);
-
-      // Generar Plan de Video (IA) si hay guion
-      let productionPlan = null;
-      if (generatedPosts.tiktok_script) {
-        try {
-          console.log(`🎬 Generando Plan de Producción de Video para: ${generatedPosts.spanish_title}`);
-          const supabase = getSupabaseClient();
-          const { data: planData, error: planError } = await supabase.functions.invoke("generate-production-plan", {
-            body: { tiktok_script: generatedPosts.tiktok_script }
-          });
-          if (planError) {
-            console.error("❌ Error al invocar generate-production-plan:", planError);
-          } else {
-            productionPlan = planData;
-            console.log("✅ Plan de Producción de Video generado con éxito.");
-          }
-        } catch (err) {
-          console.error("❌ Error grave al invocar generate-production-plan:", err.message);
-        }
-      }
-
-      // Guardar en Base de Datos para evitar duplicados en el futuro
-      await markNewsAsProcessed(
-        { ...article, title: generatedPosts.spanish_title },
-        xSuccess,
-        igSuccess,
-        generatedPosts.web_article,
-        youtubeUrl,
-        article.imageUrl,
-        generatedPosts.tiktok_script,
-        productionPlan,
-        generatedPosts.tweet,
-        generatedPosts.instagram_caption
-      );
-      
-      processedArticles.push({
-        title: generatedPosts.spanish_title,
-        x_status: xSuccess ? "ok" : "fail",
-        ig_status: igSuccess ? "ok" : "fail"
-      });
-    }
-
+    // FLUJO 2: Ingesta Automática de RSS (DESHABILITADO POR CONFIGURACIÓN)
+    console.log("📡 Ingesta automática por RSS solicitada, pero se encuentra DESHABILITADA.");
     return new Response(JSON.stringify({
-      message: "Pipeline de noticias RSS ejecutado correctamente.",
-      processed_count: processedArticles.length,
-      details: processedArticles
+      success: false,
+      message: "El flujo de ingesta automática por RSS ha sido deshabilitado. Utiliza el panel de curación administrativo para importar noticias."
     }), {
       headers: { "Content-Type": "application/json" },
     });

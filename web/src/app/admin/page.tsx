@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getAdminDataAction } from "./data-actions";
-import { updateNewsStatusAction, processManualNewsAction } from "./actions";
+import { updateNewsStatusAction, processManualNewsAction, fetchRssFeedsAction } from "./actions";
 
 // Simulación determinista de autores basada en el ID del artículo
 const AUTHORS = [
@@ -54,6 +54,12 @@ export default function AdminDashboard() {
   const [manualSuccessMessage, setManualSuccessMessage] = useState<string | null>(null);
   const [manualErrorMessage, setManualErrorMessage] = useState<string | null>(null);
 
+  // Estados para feeds RSS
+  const [rssArticles, setRssArticles] = useState<any[]>([]);
+  const [isLoadingRss, setIsLoadingRss] = useState(false);
+  const [rssError, setRssError] = useState<string | null>(null);
+  const [processingRssLink, setProcessingRssLink] = useState<string | null>(null);
+
   const handleManualProcess = async (e: React.FormEvent) => {
     e.preventDefault();
     const pass = sessionStorage.getItem("admin_password");
@@ -82,10 +88,52 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadRssFeeds = async (pass: string) => {
+    setIsLoadingRss(true);
+    setRssError(null);
+    try {
+      const result = await fetchRssFeedsAction(pass, 8); // Cargar las últimas 8 noticias
+      if (result && result.success) {
+        setRssArticles(result.articles || []);
+      }
+    } catch (err: any) {
+      console.error("Error cargando feeds RSS:", err);
+      setRssError(err.message || "Fallo al conectar con la Edge Function para obtener feeds.");
+    } finally {
+      setIsLoadingRss(false);
+    }
+  };
+
+  const handleImportRssArticle = async (article: any) => {
+    const pass = sessionStorage.getItem("admin_password");
+    if (!pass) return;
+
+    setProcessingRssLink(article.link);
+    setManualSuccessMessage(null);
+    setManualErrorMessage(null);
+
+    try {
+      const result = await processManualNewsAction(pass, article.title, article.link, article.platform);
+      if (result && result.success) {
+        setManualSuccessMessage(`¡Noticia "${article.title}" importada y procesada con éxito!`);
+        // Marcar la noticia local como procesada
+        setRssArticles(prev => prev.map(item => 
+          item.link === article.link ? { ...item, isProcessed: true } : item
+        ));
+        loadData(pass); // recargar listado principal
+      }
+    } catch (err: any) {
+      setManualErrorMessage(`Error al importar "${article.title}": ` + (err.message || "Fallo en la Edge Function"));
+    } finally {
+      setProcessingRssLink(null);
+    }
+  };
+
   useEffect(() => {
     const savedPassword = sessionStorage.getItem("admin_password");
     if (savedPassword) {
       loadData(savedPassword);
+      loadRssFeeds(savedPassword);
     } else {
       setIsLoading(false);
     }
@@ -267,6 +315,129 @@ export default function AdminDashboard() {
             <p className="text-[10px] font-label-caps text-on-surface-variant mt-2 text-right">99.9% Uptime</p>
           </div>
         </div>
+      </section>
+
+      {/* RSS Ingestion and Selection Panel */}
+      <section className="mb-10 glass-panel p-6 rounded-xl border border-outline-variant bg-surface-container-lowest/30">
+        <div className="flex justify-between items-center mb-6">
+          <h4 className="font-headline-md text-[18px] font-bold text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-[22px]">rss_feed</span>
+            Feeds de Ingesta Recientes (Curación)
+          </h4>
+          <button
+            onClick={() => {
+              const pass = sessionStorage.getItem("admin_password");
+              if (pass) loadRssFeeds(pass);
+            }}
+            disabled={isLoadingRss}
+            className="px-4 py-1.5 border border-outline-variant text-on-surface-variant font-label-caps text-[12px] hover:border-primary hover:text-primary transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-[16px] ${isLoadingRss ? 'animate-spin' : ''}`}>
+              refresh
+            </span>
+            {isLoadingRss ? 'Cargando Feeds...' : 'Sincronizar Feeds'}
+          </button>
+        </div>
+
+        {rssError && (
+          <div className="p-4 mb-4 bg-error/10 border border-error/20 rounded text-xs text-error font-bold flex items-center gap-2 animate-pulse">
+            <span className="material-symbols-outlined text-[16px]">error</span>
+            {rssError}
+          </div>
+        )}
+
+        {isLoadingRss ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass-panel p-4 border border-outline-variant/30 animate-pulse flex flex-col gap-3 h-[280px]">
+                <div className="w-full h-32 bg-outline-variant/20 rounded"></div>
+                <div className="h-4 bg-outline-variant/20 rounded w-1/3"></div>
+                <div className="h-6 bg-outline-variant/20 rounded w-full"></div>
+                <div className="mt-auto h-8 bg-outline-variant/20 rounded w-full"></div>
+              </div>
+            ))}
+          </div>
+        ) : rssArticles.length === 0 ? (
+          <div className="text-center py-10 text-on-surface-variant font-body-md">
+            No se encontraron noticias en los feeds. Haz clic en Sincronizar para reintentar.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {rssArticles.map((article, index) => {
+              // Estilo de colores determinista para las plataformas/fuentes
+              const platformColors: Record<string, string> = {
+                IGN: "bg-red-500/10 border-red-500/30 text-red-400",
+                Polygon: "bg-pink-500/10 border-pink-500/30 text-pink-400",
+                Kotaku: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
+                GameSpot: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400",
+                Eurogamer: "bg-orange-500/10 border-orange-500/30 text-orange-400",
+              };
+              const colorClass = platformColors[article.platform] || "bg-primary/10 border-primary/30 text-primary-light";
+
+              return (
+                <div 
+                  key={index} 
+                  className="glass-panel border border-outline-variant/30 hover:border-primary/50 transition-all flex flex-col h-[320px] rounded overflow-hidden bg-surface-container-low/20 group"
+                >
+                  {/* Thumbnail / Image Section */}
+                  <div className="w-full h-32 bg-surface-container-highest relative overflow-hidden flex-shrink-0 border-b border-outline-variant/20">
+                    {article.imageUrl ? (
+                      <img 
+                        src={article.imageUrl} 
+                        alt={article.title} 
+                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-outline opacity-40 bg-surface-container-highest">
+                        <span className="material-symbols-outlined text-[36px]">photo_library</span>
+                      </div>
+                    )}
+                    {/* Platform Tag */}
+                    <span className={`absolute top-2 left-2 text-[9px] font-bold px-2 py-0.5 border rounded uppercase ${colorClass}`}>
+                      {article.platform}
+                    </span>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="p-4 flex flex-col flex-grow gap-2">
+                    <p className="text-[9px] text-on-surface-variant/60 font-mono">
+                      {new Date(article.pubDate).toLocaleDateString("es-ES", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    <a 
+                      href={article.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="font-bold font-body-md text-on-surface hover:text-primary transition-colors line-clamp-3 leading-snug outline-none"
+                    >
+                      {article.title}
+                    </a>
+                  </div>
+
+                  {/* Actions / Footer */}
+                  <div className="p-4 pt-0 mt-auto flex items-center justify-between border-t border-outline-variant/10">
+                    {article.isProcessed ? (
+                      <div className="w-full py-1.5 bg-outline-variant/10 border border-outline-variant/20 text-center rounded text-[10px] font-bold text-on-surface-variant/40 font-label-caps uppercase flex items-center justify-center gap-1.5">
+                        <span className="material-symbols-outlined text-[14px]">check</span>
+                        Procesada
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleImportRssArticle(article)}
+                        disabled={processingRssLink !== null}
+                        className="w-full py-1.5 bg-primary/20 hover:bg-primary/35 text-primary-light border border-primary/30 hover:border-primary/50 text-center rounded text-[10px] font-bold font-label-caps uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <span className={`material-symbols-outlined text-[14px] ${processingRssLink === article.link ? 'animate-spin' : ''}`}>
+                          {processingRssLink === article.link ? 'refresh' : 'bolt'}
+                        </span>
+                        {processingRssLink === article.link ? 'Importando...' : 'Importar con IA'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Import Manual News Form */}

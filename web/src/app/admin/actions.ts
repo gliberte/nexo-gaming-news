@@ -560,7 +560,7 @@ ${safeInstagram}
   }
 }
 
-export async function processManualNewsAction(password: string, title: string, url: string) {
+export async function processManualNewsAction(password: string, title: string, url: string, platform?: string) {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminPassword || password !== adminPassword) {
@@ -570,11 +570,12 @@ export async function processManualNewsAction(password: string, title: string, u
   const supabase = getSupabaseServerClient();
 
   try {
-    console.log(`Invocando Edge Function process-gaming-news de forma manual para: "${title}" - ${url}...`);
+    console.log(`Invocando Edge Function process-gaming-news de forma manual para: "${title}" - ${url} (${platform || 'Manual'})...`);
     const { data, error } = await supabase.functions.invoke("process-gaming-news", {
       body: {
         title,
         url,
+        platform: platform || "Manual",
         force: true
       }
     });
@@ -588,6 +589,36 @@ export async function processManualNewsAction(password: string, title: string, u
   } catch (err: any) {
     console.error("Error en processManualNewsAction:", err);
     throw new Error(`Error al invocar la función de procesamiento: ${err.message}`);
+  }
+}
+
+export async function fetchRssFeedsAction(password: string, maxItems: number = 8) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword || password !== adminPassword) {
+    throw new Error("Contraseña incorrecta.");
+  }
+
+  const supabase = getSupabaseServerClient();
+
+  try {
+    console.log(`Invocando Edge Function process-gaming-news para obtener feeds (max_items=${maxItems})...`);
+    const { data, error } = await supabase.functions.invoke("process-gaming-news", {
+      body: {
+        action: "fetch_feeds",
+        max_items: maxItems
+      }
+    });
+
+    if (error) {
+      console.error("Error al invocar edge function para feeds:", error);
+      throw new Error(error.message || "Fallo en la Edge Function.");
+    }
+
+    return { success: true, articles: data?.articles || [] };
+  } catch (err: any) {
+    console.error("Error en fetchRssFeedsAction:", err);
+    throw new Error(`Error al obtener los feeds: ${err.message}`);
   }
 }
 
