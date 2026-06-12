@@ -105,6 +105,9 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         setStatus(data.status || "draft");
         setTiktokScript(data.tiktok_script || "");
         setProductionPlan(data.production_plan || null);
+        if (data.production_plan) {
+          setShowPlan(true);
+        }
         setTweet(data.tweet || "");
         setInstagramCaption(data.instagram_caption || "");
         if (data.tags) {
@@ -190,6 +193,79 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     } finally {
       setIsGeneratingPlan(false);
     }
+  };
+
+  const handleResolutionChange = (res: string) => {
+    if (!productionPlan) return;
+    const updatedPlan = JSON.parse(JSON.stringify(productionPlan));
+    if (!updatedPlan.production_plan) {
+      updatedPlan.production_plan = {};
+    }
+    if (!updatedPlan.production_plan.render_specifications) {
+      updatedPlan.production_plan.render_specifications = {};
+    }
+    updatedPlan.production_plan.render_specifications.resolution = res;
+    setProductionPlan(updatedPlan);
+  };
+
+  const handleSceneTextChange = (sceneId: number, field: 'narrative_text' | 'screen_text_overlay', value: string) => {
+    if (!productionPlan) return;
+    const updatedPlan = JSON.parse(JSON.stringify(productionPlan));
+    if (!updatedPlan.production_plan || !updatedPlan.production_plan.scenes) return;
+    
+    const sceneIndex = updatedPlan.production_plan.scenes.findIndex((s: any) => s.scene_id === sceneId);
+    if (sceneIndex === -1) return;
+    
+    if (field === 'narrative_text') {
+      updatedPlan.production_plan.scenes[sceneIndex].narrative_text = value;
+    } else if (field === 'screen_text_overlay') {
+      if (!updatedPlan.production_plan.scenes[sceneIndex].hook_settings) {
+        updatedPlan.production_plan.scenes[sceneIndex].hook_settings = {};
+      }
+      updatedPlan.production_plan.scenes[sceneIndex].hook_settings.screen_text_overlay = value;
+    }
+    
+    setProductionPlan(updatedPlan);
+  };
+
+  const handleScenePresentationModeChange = (sceneId: number, mode: string) => {
+    if (!productionPlan) return;
+    const updatedPlan = JSON.parse(JSON.stringify(productionPlan));
+    if (!updatedPlan.production_plan || !updatedPlan.production_plan.scenes) return;
+    
+    const sceneIndex = updatedPlan.production_plan.scenes.findIndex((s: any) => s.scene_id === sceneId);
+    if (sceneIndex === -1) return;
+    
+    if (!updatedPlan.production_plan.scenes[sceneIndex].visual_resource) {
+      updatedPlan.production_plan.scenes[sceneIndex].visual_resource = {};
+    }
+    updatedPlan.production_plan.scenes[sceneIndex].visual_resource.presentation_mode = mode;
+    
+    setProductionPlan(updatedPlan);
+  };
+
+  const handleSceneObjectPositionChange = (sceneId: number, pos: string) => {
+    if (!productionPlan) return;
+    const updatedPlan = JSON.parse(JSON.stringify(productionPlan));
+    if (!updatedPlan.production_plan || !updatedPlan.production_plan.scenes) return;
+    
+    const sceneIndex = updatedPlan.production_plan.scenes.findIndex((s: any) => s.scene_id === sceneId);
+    if (sceneIndex === -1) return;
+    
+    if (!updatedPlan.production_plan.scenes[sceneIndex].visual_resource) {
+      updatedPlan.production_plan.scenes[sceneIndex].visual_resource = {};
+    }
+    updatedPlan.production_plan.scenes[sceneIndex].visual_resource.object_position = pos;
+    
+    setProductionPlan(updatedPlan);
+  };
+
+  const handleUseAiVoiceChange = (checked: boolean) => {
+    if (!productionPlan) return;
+    const updatedPlan = JSON.parse(JSON.stringify(productionPlan));
+    const target = updatedPlan.production_plan || updatedPlan;
+    target.use_ai_voice = checked;
+    setProductionPlan(updatedPlan);
   };
 
   const handleRenderVideo = async () => {
@@ -317,7 +393,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const youtubeVideoId = getYoutubeVideoId(youtubeUrl);
 
   return (
-    <div className="flex-1 p-8 grid grid-cols-12 gap-6 overflow-hidden relative h-full">
+    <div className="flex-1 p-8 grid grid-cols-12 gap-6 overflow-y-auto relative">
       {error && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-error/90 backdrop-blur text-on-error rounded-xl shadow-2xl font-bold flex items-center gap-2 border border-error/30">
           <span className="material-symbols-outlined">error</span>
@@ -325,9 +401,9 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="col-span-12 grid grid-cols-12 gap-6 h-full">
+      <form onSubmit={handleSubmit} className="col-span-12 grid grid-cols-12 gap-6">
         {/* ================== LEFT COLUMN (EDITOR CANVAS) ================== */}
-        <section className="col-span-12 lg:col-span-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-4 h-full pb-8">
+        <section className="col-span-12 lg:col-span-8 flex flex-col gap-6 pr-4 pb-8">
           
           {isPreview ? (
             /* PREVIEW OVERLAY */
@@ -520,7 +596,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   
                   {showPlan && (
                     <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-on-surface-variant">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-on-surface-variant bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/50">
                         <div>
                           <p><span className="text-secondary">VOICE TONE:</span> {productionPlan.production_plan?.voice_over?.voice_settings?.intonation_description}</p>
                           <p className="mt-1.5"><span className="text-secondary">SOUNDTRACK:</span> {productionPlan.production_plan?.soundtrack?.music_style} ({productionPlan.production_plan?.soundtrack?.tempo})</p>
@@ -531,28 +607,112 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                         </div>
                       </div>
 
+                      {/* Aspect Ratio Selector */}
+                      <div className="space-y-2 border-t border-outline-variant pt-4">
+                        <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[14px]">aspect_ratio</span>
+                          VIDEO ASPECT RATIO
+                        </label>
+                        <div className="relative">
+                          <select 
+                            value={productionPlan.production_plan?.render_specifications?.resolution || "1080x1920"}
+                            onChange={(e) => handleResolutionChange(e.target.value)}
+                            className="w-full bg-surface-container-low border border-outline-variant text-on-surface rounded-lg px-4 py-3 appearance-none focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all cursor-pointer font-body-md"
+                          >
+                            <option value="1080x1920">9:16 (TikTok, Shorts, Reels)</option>
+                            <option value="1920x1080">16:9 (YouTube, Web)</option>
+                            <option value="1080x1080">1:1 (Instagram)</option>
+                          </select>
+                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+                        </div>
+                      </div>
+
+                      {/* AI Voice Toggle Switch */}
+                      <div className="space-y-2 border-t border-outline-variant pt-4 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[14px]">record_voice_over</span>
+                            VOZ DE IA (ELEVENLABS)
+                          </label>
+                          <p className="text-xs text-on-surface-variant/60">Generar locución de voz sintetizada automáticamente</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={!!(productionPlan.production_plan?.use_ai_voice || productionPlan.use_ai_voice)}
+                            onChange={(e) => handleUseAiVoiceChange(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-zinc-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-zinc-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-black"></div>
+                        </label>
+                      </div>
+
                       <div className="space-y-4 border-t border-outline-variant pt-4">
                         <p className="font-label-caps text-[11px] text-on-surface-variant">SCENES SEQUENCE ({productionPlan.production_plan?.scenes?.length || 0} scenes)</p>
                         <div className="space-y-3">
                           {productionPlan.production_plan?.scenes?.map((scene: any) => (
-                            <div key={scene.scene_id} className="p-4 bg-surface-container-low border border-outline-variant rounded-lg space-y-2">
+                            <div key={scene.scene_id} className="p-4 bg-surface-container-low border border-outline-variant rounded-lg space-y-4">
                               <div className="flex justify-between text-xs font-mono text-primary font-bold">
                                 <span>Scene {scene.scene_id}</span>
                                 <span>{scene.start_time_seconds}s - {scene.end_time_seconds}s</span>
                               </div>
-                              <p className="text-sm text-on-surface">{scene.narrative_text}</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs pt-2 border-t border-outline-variant/30 text-on-surface-variant">
-                                <div className="space-y-0.5">
-                                  <p className="font-bold text-on-surface-variant/80">Visual Resource:</p>
-                                  <p>{scene.visual_resource?.resource_type}</p>
-                                  <p className="text-[10px] font-mono text-primary/80">Search: "{scene.visual_resource?.youtube_search_query}"</p>
-                                </div>
-                                <div className="space-y-0.5">
-                                  <p className="font-bold text-on-surface-variant/80">Overlay Hook:</p>
-                                  <p className="font-bold" style={{ color: textStylesMap[scene.hook_settings?.text_style] || '#fbff00' }}>
-                                    "{scene.hook_settings?.screen_text_overlay}"
-                                  </p>
-                                  <p className="text-[10px] font-mono">Pos: {scene.hook_settings?.dynamic_subtitles_placement} | Style: {scene.hook_settings?.text_style}</p>
+                              
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="font-label-caps text-[10px] text-on-surface-variant/70 block mb-1">NARRATIVE TEXT (SUBTITLES & VOICE)</label>
+                                  <textarea
+                                    value={scene.narrative_text || ""}
+                                    onChange={(e) => handleSceneTextChange(scene.scene_id, 'narrative_text', e.target.value)}
+                                    rows={2}
+                                    className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none resize-y custom-scrollbar font-sans"
+                                    placeholder="Enter scene script..."
+                                  />
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-outline-variant/20">
+                                    <div className="space-y-3 text-xs text-on-surface-variant">
+                                      <div className="space-y-0.5">
+                                        <p className="font-bold text-[10px] uppercase text-on-surface-variant/70">Visual Resource:</p>
+                                        <p>{scene.visual_resource?.resource_type}</p>
+                                        <p className="text-[10px] font-mono text-primary/80">Search: "{scene.visual_resource?.youtube_search_query}"</p>
+                                        <div>
+                                          <label className="font-label-caps text-[10px] text-on-surface-variant/70 block mb-1">PRESENTATION MODE</label>
+                                          <select
+                                            value={scene.visual_resource?.presentation_mode || "cover"}
+                                            onChange={(e) => handleScenePresentationModeChange(scene.scene_id, e.target.value)}
+                                            className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded px-2 py-1 text-xs outline-none text-on-surface font-sans cursor-pointer"
+                                          >
+                                            <option value="cover">Smart Crop (Fill)</option>
+                                            <option value="blur_fit">Split Screen (Blur Fit)</option>
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <label className="font-label-caps text-[10px] text-on-surface-variant/70 block mb-1">FOCUS AREA (CROP ALIGNMENT)</label>
+                                          <select
+                                            value={scene.visual_resource?.object_position || 'center'}
+                                            onChange={(e) => handleSceneObjectPositionChange(scene.scene_id, e.target.value)}
+                                            className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded px-2 py-1 text-xs outline-none text-on-surface font-sans cursor-pointer"
+                                          >
+                                            <option value="center">Center (Default)</option>
+                                            <option value="left">Left (Streamers / HUD)</option>
+                                            <option value="right">Right (Action / HUD)</option>
+                                            <option value="top">Top (Heads / Skylines)</option>
+                                            <option value="bottom">Bottom (Controls / Ground)</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="font-label-caps text-[10px] text-on-surface-variant/70 block mb-1">OVERLAY HOOK TEXT</label>
+                                      <input
+                                        type="text"
+                                        value={scene.hook_settings?.screen_text_overlay || ""}
+                                        onChange={(e) => handleSceneTextChange(scene.scene_id, 'screen_text_overlay', e.target.value)}
+                                        className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded px-2 py-1 text-xs outline-none font-bold"
+                                        style={{ color: textStylesMap[scene.hook_settings?.text_style] || '#fbff00' }}
+                                        placeholder="No overlay text"
+                                      />
+                                      <p className="text-[9px] font-mono text-on-surface-variant/60 mt-1">Pos: {scene.hook_settings?.dynamic_subtitles_placement} | Style: {scene.hook_settings?.text_style}</p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -655,7 +815,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         </section>
 
         {/* ================== RIGHT COLUMN (SIDEBAR PANELS) ================== */}
-        <section className="col-span-12 lg:col-span-4 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 h-full pb-8">
+        <section className="col-span-12 lg:col-span-4 flex flex-col gap-6 pr-2 pb-8">
           
           {/* Publication Card */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-6 space-y-6">

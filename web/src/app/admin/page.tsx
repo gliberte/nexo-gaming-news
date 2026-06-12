@@ -50,9 +50,11 @@ export default function AdminDashboard() {
   // Estados para procesamiento manual
   const [manualTitle, setManualTitle] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [manualNiche, setManualNiche] = useState("music");
   const [isProcessingManual, setIsProcessingManual] = useState(false);
   const [manualSuccessMessage, setManualSuccessMessage] = useState<string | null>(null);
   const [manualErrorMessage, setManualErrorMessage] = useState<string | null>(null);
+
 
   // Estados para feeds RSS
   const [rssArticles, setRssArticles] = useState<any[]>([]);
@@ -73,9 +75,9 @@ export default function AdminDashboard() {
     setManualErrorMessage(null);
     
     try {
-      const result = await processManualNewsAction(pass, manualTitle, manualUrl);
+      const result = await processManualNewsAction(pass, manualTitle, manualUrl, "Manual", manualNiche);
       if (result && result.success) {
-        setManualSuccessMessage("¡Noticia procesada y guardada con éxito! Revisa la notificación en Telegram.");
+        setManualSuccessMessage("¡Noticia/Anécdota procesada y guardada con éxito! Revisa la notificación en Telegram.");
         setManualTitle("");
         setManualUrl("");
         loadData(pass);
@@ -448,28 +450,38 @@ export default function AdminDashboard() {
         </h4>
         <form onSubmit={handleManualProcess} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <div className="md:col-span-4 space-y-1.5">
-            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">TÍTULO DE LA NOTICIA</label>
+            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">TÍTULO O NÚCLEO</label>
             <input 
               type="text" 
               value={manualTitle}
               onChange={(e) => setManualTitle(e.target.value)}
-              placeholder="Ej: Nintendo Switch 2 revelada..."
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors"
+              placeholder="Ej: La trompeta torcida de Dizzy..."
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors h-[38px]"
               required
             />
           </div>
-          <div className="md:col-span-5 space-y-1.5">
-            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">URL DE LA NOTICIA / FUENTE</label>
-            <input 
-              type="url" 
+          <div className="md:col-span-4 space-y-1.5">
+            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">URL / ANÉCDOTA (TEXTO Y PROMPTS)</label>
+            <textarea 
               value={manualUrl}
               onChange={(e) => setManualUrl(e.target.value)}
-              placeholder="Ej: https://kotaku.com/..."
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors"
+              placeholder="Pega aquí la URL de la noticia o escribe directamente la anécdota y sus instrucciones..."
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded p-2 text-sm text-on-surface outline-none transition-colors h-[38px] min-h-[38px] max-h-[120px] resize-y custom-scrollbar"
               required
             />
           </div>
-          <div className="md:col-span-3">
+          <div className="md:col-span-2 space-y-1.5">
+            <label className="text-[10px] font-label-caps text-on-surface-variant uppercase tracking-wider block">NICHO</label>
+            <select
+              value={manualNiche}
+              onChange={(e) => setManualNiche(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded px-3 py-1.5 text-sm text-on-surface outline-none transition-colors h-[38px] cursor-pointer"
+            >
+              <option value="music">Música</option>
+              <option value="gaming">Gaming</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
             <button 
               type="submit"
               disabled={isProcessingManual}

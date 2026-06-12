@@ -147,8 +147,32 @@ export async function generateProductionPlanAction(password: string, tiktokScrip
   }
 
   const supabase = getSupabaseServerClient();
+  
+  let niche = "music"; // Default to music niche
+  if (id) {
+    try {
+      const { data: newsItem } = await supabase
+        .from('published_news')
+        .select('user_id')
+        .eq('id', id)
+        .single();
+      if (newsItem?.user_id) {
+        const { data: creator } = await supabase
+          .from('creator_settings')
+          .select('niche')
+          .eq('user_id', newsItem.user_id)
+          .single();
+        if (creator?.niche) {
+          niche = creator.niche;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not determine creator niche, defaulting to music:", err);
+    }
+  }
+
   const { data, error } = await supabase.functions.invoke('generate-production-plan', {
-    body: { tiktok_script: tiktokScript }
+    body: { tiktok_script: tiktokScript, niche }
   });
 
   if (error) {
@@ -334,7 +358,7 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
   const supabase = getSupabaseServerClient();
   const { data: newsItem, error } = await supabase
     .from("published_news")
-    .select("title, tweet, instagram_caption, video_url, id, web_article, tiktok_script")
+    .select("title, tweet, instagram_caption, video_url, id, web_article, tiktok_script, youtube_url")
     .eq("id", id)
     .single();
 
@@ -434,9 +458,17 @@ export async function sendCuratedContentToTelegramAction(password: string, id: s
   const safeTitle = escapeHtml(title);
   const safeTweet = escapeHtml(tweet);
   const safeInstagram = escapeHtml(instagram);
+  const safeTrailer = newsItem.youtube_url && newsItem.youtube_url !== "No se encontró trailer." ? escapeHtml(newsItem.youtube_url) : "";
 
   let caption = `
 🎮 <b>Contenidos Curados: ${safeTitle}</b> 🎮
+  `.trim();
+
+  if (safeTrailer) {
+    caption += `\n\n📺 <b>Tráiler Oficial:</b> ${safeTrailer}`;
+  }
+
+  caption += `
 
 🐦 <b>Borrador para X (Twitter):</b>
 ${safeTweet}
@@ -472,6 +504,9 @@ ${safeInstagram}
       
       if (caption.length > 1024) {
         videoCaption = `🎮 <b>Contenidos Curados: ${safeTitle}</b> 🎮\n\n🎥 <b>Video de TikTok</b> (Textos curados abajo en la respuesta)`;
+        if (safeTrailer) {
+          videoCaption += `\n📺 <b>Tráiler Oficial:</b> ${safeTrailer}`;
+        }
         followUpText = caption;
       }
 
@@ -560,7 +595,7 @@ ${safeInstagram}
   }
 }
 
-export async function processManualNewsAction(password: string, title: string, url: string, platform?: string) {
+export async function processManualNewsAction(password: string, title: string, url: string, platform?: string, niche?: string) {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminPassword || password !== adminPassword) {
@@ -570,12 +605,13 @@ export async function processManualNewsAction(password: string, title: string, u
   const supabase = getSupabaseServerClient();
 
   try {
-    console.log(`Invocando Edge Function process-gaming-news de forma manual para: "${title}" - ${url} (${platform || 'Manual'})...`);
+    console.log(`Invocando Edge Function process-gaming-news de forma manual para: "${title}" - [niche: ${niche || 'music'}]...`);
     const { data, error } = await supabase.functions.invoke("process-gaming-news", {
       body: {
         title,
         url,
         platform: platform || "Manual",
+        niche: niche || "music",
         force: true
       }
     });
